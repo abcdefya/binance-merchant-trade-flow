@@ -86,3 +86,23 @@ class C2CExtended(C2C):
         end_time = get_timestamp(end_of_today)
 
         return self._fetch_data(start_time, end_time)
+
+    def get_latest_by_week(self) -> List[GetC2CTradeHistoryResponseDataInner]:
+        """
+        Get trade history from start of current week (Monday) to now in Vietnam timezone (UTC+7).
+        Includes both BUY and SELL trades.
+        
+        Returns:
+            List[GetC2CTradeHistoryResponseDataInner]: List of trade records
+        """
+
+        now = datetime.now(self.tz_vietnam)
+
+        # Calculate days since Monday (0 = Mon, 1 = Tues,...)
+        days_since_monday = now.weekday()
+        start_of_week = (now - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        start_time = get_timestamp(start_of_week)
+        end_time = get_timestamp(now)
+
+        return self._fetch_data(start_time, end_time)
