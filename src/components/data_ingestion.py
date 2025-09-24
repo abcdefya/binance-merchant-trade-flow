@@ -2,9 +2,23 @@ import os
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
-from binance_sdk_c2c.rest_api.models import GetC2CTradeHistoryResponse, GetC2CTradeHistoryResponseDataInner
+from binance_sdk_c2c.rest_api.models import GetC2CTradeHistoryResponseDataInner
 from binance_sdk_c2c.c2c import C2C, ConfigurationRestAPI, C2C_REST_API_PROD_URL
-from src.utils.utils import *
+from src.utils.utils import (
+    get_timestamp,
+    filter_by_time_range,
+    stable_sort_by_time,
+    retry,
+    write_to_csv,
+    write_to_parquet,
+    write_to_json,
+    get_vietnam_tz,
+    start_of_day,
+    end_of_day,
+    start_of_week,
+    previous_week_range,
+    previous_month_range,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +30,7 @@ class C2CExtended(C2C):
     def __init__(self, config_rest_api: ConfigurationRestAPI = None) -> None:
         super().__init__(config_rest_api)
         self.max_records = 50  # Maximum records per request as per observed API limit
-        self.tz_vietnam = timezone(timedelta(hours=7))  # UTC+7 For Vietnam timezone
+        self.tz_vietnam = get_vietnam_tz()  # UTC+7 For Vietnam timezone
 
     def _fetch_data(
         self,
@@ -33,16 +47,20 @@ class C2CExtended(C2C):
         Returns:
             List[GetC2CTradeHistoryResponseDataInner]: List of all trade records
         """
-        fetch_data = []
-        page = 1 
+        fetch_data: List[GetC2CTradeHistoryResponseDataInner] = []
+        page = 1
 
-        while True:
-            response = self.rest_api.get_c2_c_trade_history(
+        @retry(exceptions=(Exception,), tries=3, delay_seconds=1.0, backoff=2.0)
+        def _get_page(p: int):
+            return self.rest_api.get_c2_c_trade_history(
                 start_time=start_time,
                 end_time=end_time,
-                page=page,
-                recv_window=60000
+                page=p,
+                recv_window=60000,
             )
+
+        while True:
+            response = _get_page(page)
 
             rate_limits = response.rate_limits
             logging.info(f"Page {page} rate limits: {rate_limits}")
@@ -54,11 +72,7 @@ class C2CExtended(C2C):
                 break
 
             data = response_data.data
-            # Verify that trades are within the requested time range
-            filtered_data = [
-                trade for trade in data
-                if start_time <= trade.create_time <= end_time
-            ]
+            filtered_data = filter_by_time_range(data, start_time, end_time)
             fetch_data.extend(filtered_data)
             logging.info(f"Page {page} retrieved {len(data)} records, {len(filtered_data)} within time range")
 
@@ -68,7 +82,12 @@ class C2CExtended(C2C):
 
             page += 1
         
-        return fetch_data
+        # Deduplicate by order_number and sort by create_time
+        unique = {}
+        for item in fetch_data:
+            unique[getattr(item, 'order_number', None)] = item
+        deduped = list(unique.values())
+        return stable_sort_by_time(deduped)
 
     def get_latest(self) -> List[GetC2CTradeHistoryResponseDataInner]:
         """
@@ -79,8 +98,8 @@ class C2CExtended(C2C):
             List[GetC2CTradeHistoryResponseDataInner]: List of trade records
         """
         now = datetime.now(self.tz_vietnam)
-        start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_of_today = now.replace(hour=23, minute=59, second=59, microsecond=999000)
+        start_of_today = start_of_day(now)
+        end_of_today = end_of_day(now)
 
         start_time = get_timestamp(start_of_today)
         end_time = get_timestamp(end_of_today)
@@ -97,12 +116,9 @@ class C2CExtended(C2C):
         """
 
         now = datetime.now(self.tz_vietnam)
+        start_of_week_dt = start_of_week(now)
 
-        # Calculate days since Monday (0 = Mon, 1 = Tues,...)
-        days_since_monday = now.weekday()
-        start_of_week = (now - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
-
-        start_time = get_timestamp(start_of_week)
+        start_time = get_timestamp(start_of_week_dt)
         end_time = get_timestamp(now)
 
         return self._fetch_data(start_time, end_time)
@@ -116,10 +132,7 @@ class C2CExtended(C2C):
             List[GetC2CTradeHistoryResponseDataInner]: List of trade records
         """
         now = datetime.now(self.tz_vietnam)
-        days_since_monday = now.weekday()
-        start_of_current_week = (now - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
-        start_of_prev_week = start_of_current_week - timedelta(days=7)
-        end_of_prev_week = start_of_prev_week + timedelta(days=7) - timedelta(milliseconds=1)
+        start_of_prev_week, end_of_prev_week = previous_week_range(now)
 
         start_time = get_timestamp(start_of_prev_week)
         end_time = get_timestamp(end_of_prev_week)
@@ -137,23 +150,7 @@ class C2CExtended(C2C):
         """
 
         now = datetime.now(self.tz_vietnam)
-
-        # Get first day of current month
-        start_of_current_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-        # Get first day of previous month
-        start_of_prev_month = (start_of_current_month - timedelta(days=1)).replace(day=1)
-
-        # Get last day of previous month
-        if start_of_prev_month.month == 12:
-            end_of_prev_month = start_of_prev_month.replace(year=start_of_prev_month.year + 1,
-            month=1,
-            day=1)
-        else:
-            end_of_prev_month = start_of_prev_month.replace(month=start_of_prev_month.month + 1,
-            day=1)
-        
-        end_of_prev_month -= timedelta(milliseconds=1)
+        start_of_prev_month, end_of_prev_month = previous_month_range(now)
 
         start_time = get_timestamp(start_of_prev_month)
         end_time = get_timestamp(end_of_prev_month)
@@ -216,3 +213,28 @@ class C2CExtended(C2C):
         except ValueError as e:
             logging.error(f"Invalid date format or range: {str(e)}")
             return []
+
+    def export_custom_range(self, start_date: str, end_date: str, fmt: str = 'csv') -> Optional[str]:
+        """
+        Fetch trades for a custom range and export to the desired format.
+
+        Args:
+            start_date: 'YYYY-MM-DD'
+            end_date: 'YYYY-MM-DD'
+            fmt: 'csv' | 'json' | 'parquet'
+
+        Returns:
+            Optional[str]: Output file path (if created)
+        """
+        data = self.get_custom_range(start_date, end_date)
+        cleaned = f"{start_date}_to_{end_date}"
+        if fmt.lower() == 'csv':
+            return write_to_csv(data, cleaned)
+        if fmt.lower() == 'json':
+            output_file = f"c2c_trade_history_{cleaned.replace('-', '').replace('/', '').replace(' ', '')}.json"
+            return write_to_json(data, output_file)
+        if fmt.lower() == 'parquet':
+            output_file = f"c2c_trade_history_{cleaned.replace('-', '').replace('/', '').replace(' ', '')}.parquet"
+            return write_to_parquet(data, output_file)
+        logging.error(f"Unsupported export format: {fmt}")
+        return None
