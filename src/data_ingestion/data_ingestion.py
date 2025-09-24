@@ -188,3 +188,31 @@ class C2CExtended(C2C):
         end_time = get_timestamp(end_of_yesterday)
 
         return self._fetch_data(start_time, end_time)
+
+    def get_custom_range(self, start_date: str, end_date: str) -> List[GetC2CTradeHistoryResponseDataInner]:
+        """
+        Get trade history for a custom date range in Vietnam timezone (UTC+7).
+        Includes both BUY and SELL trades.
+        
+        Args:
+            start_date (str): Start date in format 'YYYY-MM-DD' (e.g., '2025-09-01')
+            end_date (str): End date in format 'YYYY-MM-DD' (e.g., '2025-09-23')
+        
+        Returns:
+            List[GetC2CTradeHistoryResponseDataInner]: List of trade records
+        """
+        try:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d').replace(tzinfo=self.tz_vietnam, hour=0, minute=0, second=0, microsecond=0)
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d').replace(tzinfo=self.tz_vietnam, hour=23, minute=59, second=59, microsecond=999000)
+            
+            # Validate date range (max 30 days as per API limit)
+            if (end_dt - start_dt).days > 30:
+                raise ValueError("Date range cannot exceed 30 days")
+
+            start_time = get_timestamp(start_dt)
+            end_time = get_timestamp(end_dt)
+
+            return self._fetch_data(start_time, end_time)
+        except ValueError as e:
+            logging.error(f"Invalid date format or range: {str(e)}")
+            return []
