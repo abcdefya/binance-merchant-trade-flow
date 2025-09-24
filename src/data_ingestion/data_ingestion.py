@@ -159,3 +159,32 @@ class C2CExtended(C2C):
         end_time = get_timestamp(end_of_prev_month)
 
         return self._fetch_data(start_time, end_time)
+
+        
+    def get_yesterday(self) -> List[GetC2CTradeHistoryResponseDataInner]:
+        """
+        Get trade history for the yesterday since today in Vietnam timezone (UTC+7).
+        Includes both BUY and SELL trades.
+        
+        Returns:
+            List[GetC2CTradeHistoryResponseDataInner]: List of trade records
+        """
+
+        now = datetime.now(self.tz_vietnam)
+        
+        # Start of yesterday
+        start_of_yesterday = (now - timedelta(days=1)).replace(hour=0, 
+                                                            minute=0,
+                                                            second=0,
+                                                            microsecond=0)
+        
+        # End of yesterday
+        end_of_yesterday = start_of_yesterday.replace(hour=23,
+                                                    minute=59,
+                                                    second=59,
+                                                    microsecond=999000)
+
+        start_time = get_timestamp(start_of_yesterday)
+        end_time = get_timestamp(end_of_yesterday)
+
+        return self._fetch_data(start_time, end_time)
