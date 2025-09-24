@@ -125,3 +125,37 @@ class C2CExtended(C2C):
         end_time = get_timestamp(end_of_prev_week)
 
         return self._fetch_data(start_time, end_time)
+
+
+    def get_prev_month(self) -> List[GetC2CTradeHistoryResponseDataInner]:
+        """
+        Get trade history for the entire previous month in Vietnam timezone (UTC+7).
+        Includes both BUY and SELL trades.
+        
+        Returns:
+            List[GetC2CTradeHistoryResponseDataInner]: List of trade records
+        """
+
+        now = datetime.now(self.tz_vietnam)
+
+        # Get first day of current month
+        start_of_current_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        # Get first day of previous month
+        start_of_prev_month = (start_of_current_month - timedelta(days=1)).replace(day=1)
+
+        # Get last day of previous month
+        if start_of_prev_month.month == 12:
+            end_of_prev_month = start_of_prev_month.replace(year=start_of_prev_month.year + 1,
+            month=1,
+            day=1)
+        else:
+            end_of_prev_month = start_of_prev_month.replace(month=start_of_prev_month.month + 1,
+            day=1)
+        
+        end_of_prev_month -= timedelta(milliseconds=1)
+
+        start_time = get_timestamp(start_of_prev_month)
+        end_time = get_timestamp(end_of_prev_month)
+
+        return self._fetch_data(start_time, end_time)
