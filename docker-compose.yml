@@ -7,7 +7,7 @@ services:
   # of broker failure
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
-    container_name: cdc-zookeeper
+    container_name: c2c-cdc-zookeeper
     ports:
       - "2181:2181" # host_port:container_port
     healthcheck:
@@ -22,7 +22,7 @@ services:
   # Kafka broker, each broker can be considered as a node
   broker:
     image: confluentinc/cp-server:7.5.0
-    container_name: cdc-broker
+    container_name: c2c-cdc-broker
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -53,7 +53,7 @@ services:
   # Store Avro schemas for topics to ensure schema compatibility
   schema-registry:
     image: confluentinc/cp-schema-registry:7.5.0
-    container_name: cdc-schema-registry
+    container_name: c2c-cdc-schema-registry
     depends_on:
       broker:
         condition: service_healthy
@@ -71,7 +71,7 @@ services:
 
   control-center:
     image: confluentinc/cp-enterprise-control-center:7.5.0
-    container_name: cdc-control-center
+    container_name: c2c-cdc-control-center
     depends_on:
       broker:
         condition: service_healthy
@@ -104,7 +104,7 @@ services:
   # and stream them to Kafka
   debezium:
     image: debezium/connect:1.9
-    container_name: cdc-debezium
+    container_name: c2c-cdc-debezium
     depends_on:
       broker:
         condition: service_healthy
@@ -146,7 +146,7 @@ services:
   # Debezium UI
   debezium-ui:
     image: debezium/debezium-ui:latest
-    container_name: debezium-ui
+    container_name: c2c-debezium-ui
     hostname: debezium-ui
     depends_on:
       debezium:
@@ -161,20 +161,20 @@ services:
     # so that Debezium can capture change
     image: postgres:latest
     command: ['postgres', '-c', 'wal_level=logical']
-    container_name: cdc-postgresql
+    container_name: c2c-cdc-postgresql
     healthcheck:
-      test: ['CMD', 'psql', '-U', 'k6', '-c', 'SELECT 1']
+      test: ['CMD', 'psql', '-U', 'loncak', '-c', 'SELECT 1']
       interval: 10s
       timeout: 5s
       retries: 5
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=k6
-      - POSTGRES_USER=k6
-      - POSTGRES_PASSWORD=k6
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes: 
-      - cdc_postgres_data:/var/lib/postgresql/data
+      - c2c-cdc_postgres_data:/var/lib/postgresql/data
 
 volumes:
-  cdc_postgres_data:
+  c2c-cdc_postgres_data:
