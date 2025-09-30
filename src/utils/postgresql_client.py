@@ -1,7 +1,10 @@
 import logging
 import os
+import json
+from datetime import datetime, timezone
+from time import sleep
 from contextlib import contextmanager
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Tuple
 from urllib.parse import quote_plus
 
 import pandas as pd
@@ -189,6 +192,60 @@ class PostgreSQLClient:
             logger.error(f"Batch query execution failed: {e}")
             raise PostgreSQLClientError(f"Batch query execution failed: {e}")
     
+    # ------------------------ Generic CRUD helpers ------------------------
+    @staticmethod
+    def _build_where_clause(where: Dict[str, Any]) -> Tuple[str, Tuple[Any, ...]]:
+        if not where:
+            raise ValueError("WHERE conditions cannot be empty for update/delete")
+        clauses: List[str] = []
+        params: List[Any] = []
+        for column, value in where.items():
+            clauses.append(f"{column} = %s")
+            params.append(value)
+        return " AND ".join(clauses), tuple(params)
+
+    def insert_row(self, table: str, values: Dict[str, Any]) -> None:
+        """Insert a single row using parameterized query."""
+        if not values:
+            raise ValueError("Values cannot be empty for insert")
+        order_number = values.get("order_number") or values.get("ORDER_NUMBER")
+        if order_number is not None:
+            logger.info(f"Inserting row into {table}: order_number={order_number}")
+        else:
+            logger.info(f"Inserting row into {table} (no order_number provided)")
+        columns = list(values.keys())
+        placeholders = ", ".join(["%s"] * len(columns))
+        cols_sql = ", ".join(columns)
+        params = tuple(values[col] for col in columns)
+        sql_stmt = f"INSERT INTO {table} ({cols_sql}) VALUES ({placeholders})"
+        self.execute_query(sql_stmt, params, fetch=False)
+
+    def update_row(self, table: str, values: Dict[str, Any], where: Dict[str, Any]) -> None:
+        """Update rows matching WHERE using parameterized query."""
+        if not values:
+            raise ValueError("Values cannot be empty for update")
+        order_number = where.get("order_number") or values.get("order_number")
+        if order_number is not None:
+            logger.info(f"Updating row in {table}: order_number={order_number}; set={list(values.keys())}")
+        else:
+            logger.info(f"Updating row in {table}; where_keys={list(where.keys())}; set={list(values.keys())}")
+        set_sql = ", ".join([f"{col} = %s" for col in values.keys()])
+        set_params = tuple(values[col] for col in values.keys())
+        where_sql, where_params = self._build_where_clause(where)
+        sql_stmt = f"UPDATE {table} SET {set_sql} WHERE {where_sql}"
+        self.execute_query(sql_stmt, set_params + where_params, fetch=False)
+
+    def delete_row(self, table: str, where: Dict[str, Any]) -> None:
+        """Delete rows matching WHERE using parameterized query."""
+        order_number = where.get("order_number")
+        if order_number is not None:
+            logger.info(f"Deleting row from {table}: order_number={order_number}")
+        else:
+            logger.info(f"Deleting row from {table}; where_keys={list(where.keys())}")
+        where_sql, where_params = self._build_where_clause(where)
+        sql_stmt = f"DELETE FROM {table} WHERE {where_sql}"
+        self.execute_query(sql_stmt, where_params, fetch=False)
+    
     def get_columns(self, table_name: str, schema: str = "public") -> List[str]:
         """
         Get column names for a table using information_schema (efficient approach).
@@ -248,6 +305,130 @@ class PostgreSQLClient:
             return result[0][0] if result else False
         except PostgreSQLClientError:
             return False
+    
+    def schema_exists(self, schema: str) -> bool:
+        """
+        Check if a schema exists in the database.
+        
+        Args:
+            schema: Schema name to check
+            
+        Returns:
+            True if schema exists, False otherwise
+        """
+        query = """
+        SELECT EXISTS (
+            SELECT 1 FROM information_schema.schemata WHERE schema_name = %s
+        )
+        """
+        try:
+            result = self.execute_query(query, (schema,), fetch=True)
+            return result[0][0] if result else False
+        except PostgreSQLClientError:
+            return False
+
+    # ------------------------ Domain helper: update order status ------------------------
+    def update_order_status(self, source: Any, table: str = "c2c.trades") -> Dict[str, int]:
+        """
+        Process trade objects from either a JSON file path (str) or an in-memory list of dicts.
+        For each order_number:
+        - If it exists, compare order_status and update when changed.
+        - If it does not exist, insert a new row using best-effort field mapping.
+
+        Returns a summary dict with counters.
+        """
+        # Load records from source
+        if isinstance(source, str):
+            try:
+                with open(source, "r", encoding="utf-8") as f:
+                    records = json.load(f)
+            except Exception as e:
+                raise PostgreSQLClientError(f"Failed to read JSON file {source}: {e}")
+        elif isinstance(source, (list, tuple)):
+            records = source
+        else:
+            raise PostgreSQLClientError("update_order_status expects a file path (str) or a list of records")
+
+        inserted = 0
+        updated = 0
+        unchanged = 0
+        errors = 0
+
+        for rec in records or []:
+            try:
+                # Allow pydantic model instances or objects with to_dict/model_dump
+                if not isinstance(rec, dict):
+                    if hasattr(rec, "to_dict") and callable(getattr(rec, "to_dict")):
+                        rec = rec.to_dict()
+                    elif hasattr(rec, "model_dump") and callable(getattr(rec, "model_dump")):
+                        rec = rec.model_dump(by_alias=True, exclude_none=True)
+                    elif hasattr(rec, "dict") and callable(getattr(rec, "dict")):
+                        rec = rec.dict()
+                    else:
+                        raise ValueError("Record is not a dict and cannot be converted to dict")
+
+                order_number = rec.get("order_number") or rec.get("orderNumber")
+                if not order_number:
+                    errors += 1
+                    continue
+
+                # Pause before checking/processing this record (requested delay)
+                # sleep(2)
+
+                # Fetch current status if exists
+                select_sql = f"SELECT order_status FROM {table} WHERE order_number = %s LIMIT 1"
+                existing = self.execute_query(select_sql, (order_number,), fetch=True)
+
+                new_status = rec.get("order_status") or rec.get("orderStatus")
+
+                if not existing:
+                    logger.info(f"[CDC] Insert new order: order_number={order_number}, status={new_status}")
+                    # Insert new row
+                    amount = rec.get("amount")
+                    total_price = rec.get("total_price") or rec.get("totalPrice")
+                    unit_price = rec.get("unit_price") or rec.get("unitPrice")
+                    commission = rec.get("commission") or 0
+                    create_time_ms = rec.get("create_time") or rec.get("createTime") or 0
+                    try:
+                        ct_ms = int(create_time_ms)
+                    except Exception:
+                        ct_ms = 0
+                    ct_ts = datetime.fromtimestamp(ct_ms / 1000.0, tz=timezone.utc) if ct_ms else None
+
+                    values: Dict[str, Any] = {
+                        "order_number": order_number,
+                        "adv_no": rec.get("adv_no") or rec.get("advNo"),
+                        "trade_type": rec.get("trade_type") or rec.get("tradeType"),
+                        "asset": rec.get("asset"),
+                        "fiat": rec.get("fiat"),
+                        "fiat_symbol": rec.get("fiat_symbol") or rec.get("fiatSymbol"),
+                        "amount": amount,
+                        "total_price": total_price,
+                        "unit_price": unit_price,
+                        "order_status": new_status,
+                        "create_time_ms": ct_ms if ct_ms else None,
+                        "create_time": ct_ts,
+                        "commission": commission,
+                        "counter_part_nick_name": rec.get("counter_part_nick_name") or rec.get("counterPartNickName"),
+                        "advertisement_role": rec.get("advertisement_role") or rec.get("advertisementRole"),
+                    }
+                    values = {k: v for k, v in values.items() if v is not None}
+                    self.insert_row(table, values)
+                    inserted += 1
+                else:
+                    current_status = existing[0][0]
+                    if new_status and new_status != current_status:
+                        logger.info(f"[CDC] Update order status: order_number={order_number}, {current_status} -> {new_status}")
+                        self.update_row(table, {"order_status": new_status}, {"order_number": order_number})
+                        updated += 1
+                    else:
+                        logger.info(f"[CDC] No change: order_number={order_number}, status={current_status}")
+                        unchanged += 1
+            except Exception as e:
+                logger.warning(f"Failed to process order_number={rec.get('order_number') or rec.get('orderNumber')}: {e}")
+                errors += 1
+
+        return {"inserted": inserted, "updated": updated, "unchanged": unchanged, "errors": errors}
     
     def get_dataframe(self, query: str, params: Optional[tuple] = None) -> pd.DataFrame:
         """
