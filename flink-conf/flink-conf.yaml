@@ -1,0 +1,35 @@
+jobmanager.rpc.address: f6fbeaa4a672
+blob.server.port: 6124
+query.server.port: 6125
+
+jobmanager.rpc.address: f6fbeaa4a672
+rest.port: 8081
+
+
+jobmanager.rpc.address: f6fbeaa4a672
+taskmanager.numberOfTaskSlots: 2
+
+
+jobmanager.rpc.address: f6fbeaa4a672
+rest.port: 8081
+
+
+jobmanager.rpc.address: f6fbeaa4a672
+taskmanager.numberOfTaskSlots: 2
+
+
+jobmanager.rpc.address: f6fbeaa4a672
+rest.port: 8081
+
+
+jobmanager.rpc.address: f6fbeaa4a672
+taskmanager.numberOfTaskSlots: 2
+
+
+jobmanager.rpc.address: f6fbeaa4a672
+rest.port: 8081
+
+
+jobmanager.rpc.address: flink-jobmanager
+taskmanager.numberOfTaskSlots: 2
+

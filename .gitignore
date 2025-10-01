@@ -226,3 +226,7 @@ great_expectations/uncommitted/
 # DVC
 .dvc/
 .dvcignore
+
+# uv and project files to ignore
+uv.lock
+pyproject.toml
