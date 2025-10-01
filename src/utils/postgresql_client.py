@@ -368,9 +368,7 @@ class PostgreSQLClient:
                         raise ValueError("Record is not a dict and cannot be converted to dict")
 
                 order_number = rec.get("order_number") or rec.get("orderNumber")
-                if not order_number:
-                    errors += 1
-                    continue
+
 
                 # Pause before checking/processing this record (requested delay)
                 # sleep(2)
@@ -388,12 +386,11 @@ class PostgreSQLClient:
                     total_price = rec.get("total_price") or rec.get("totalPrice")
                     unit_price = rec.get("unit_price") or rec.get("unitPrice")
                     commission = rec.get("commission") or 0
-                    create_time_ms = rec.get("create_time") or rec.get("createTime") or 0
+                    create_time_ms = rec.get("create_time") or rec.get("createTime")
                     try:
                         ct_ms = int(create_time_ms)
                     except Exception:
                         ct_ms = 0
-                    ct_ts = datetime.fromtimestamp(ct_ms / 1000.0, tz=timezone.utc) if ct_ms else None
 
                     values: Dict[str, Any] = {
                         "order_number": order_number,
@@ -407,7 +404,6 @@ class PostgreSQLClient:
                         "unit_price": unit_price,
                         "order_status": new_status,
                         "create_time_ms": ct_ms if ct_ms else None,
-                        "create_time": ct_ts,
                         "commission": commission,
                         "counter_part_nick_name": rec.get("counter_part_nick_name") or rec.get("counterPartNickName"),
                         "advertisement_role": rec.get("advertisement_role") or rec.get("advertisementRole"),

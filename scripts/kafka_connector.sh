@@ -59,15 +59,12 @@ CREATE TABLE IF NOT EXISTS c2c.trades (
     unit_price NUMERIC(38, 8) CHECK (unit_price >= 0),
     order_status TEXT,
     create_time_ms BIGINT,
-    create_time TIMESTAMPTZ,
     commission NUMERIC(38, 8) CHECK (commission >= 0),
     counter_part_nick_name TEXT,
     advertisement_role TEXT,
     inserted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_trades_create_time ON c2c.trades(create_time);
-CREATE INDEX IF NOT EXISTS idx_trades_asset_fiat ON c2c.trades(asset, fiat);
-CREATE INDEX IF NOT EXISTS idx_trades_trade_type_time ON c2c.trades(trade_type, create_time);
+
 SQL
         ;;
     register_and_init)
