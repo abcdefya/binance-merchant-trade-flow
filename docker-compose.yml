@@ -1,4 +1,3 @@
----
 version: '3.8'
 services:
   # Partition leader election, store Kafka configuration's settings,
@@ -145,6 +144,9 @@ services:
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
         rest.port: 8081
+        jobmanager.memory.process.size: 1600m
+        taskmanager.memory.process.size: 1728m
+        taskmanager.numberOfTaskSlots: 2
     volumes:
       - ./flink-conf:/opt/flink/conf  # Mount config Flink (thêm file delta-lake.properties từ trước)
       - c2c-cdc_flink_data:/opt/flink/data
@@ -165,6 +167,8 @@ services:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 1600m
+        taskmanager.memory.process.size: 1728m
         taskmanager.numberOfTaskSlots: 2
     volumes:
       - ./flink-conf:/opt/flink/conf

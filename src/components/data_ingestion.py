@@ -49,6 +49,8 @@ class C2CExtended(C2C):
         """
         fetch_data: List[GetC2CTradeHistoryResponseDataInner] = []
         page = 1
+        consecutive_empty_pages = 0
+        max_consecutive_empty_pages = 3  # Stop after 3 consecutive pages with no data in time range
 
         @retry(exceptions=(Exception,), tries=3, delay_seconds=1.0, backoff=2.0)
         def _get_page(p: int):
@@ -76,8 +78,22 @@ class C2CExtended(C2C):
             fetch_data.extend(filtered_data)
             logging.info(f"Page {page} retrieved {len(data)} records, {len(filtered_data)} within time range")
 
+            # Track consecutive empty pages
+            if len(filtered_data) == 0:
+                consecutive_empty_pages += 1
+                logging.info(f"Consecutive empty pages: {consecutive_empty_pages}/{max_consecutive_empty_pages}")
+                
+                # Stop if we hit too many consecutive empty pages
+                if consecutive_empty_pages >= max_consecutive_empty_pages:
+                    logging.info(f"Stopping early: {consecutive_empty_pages} consecutive pages with no data in time range")
+                    break
+            else:
+                # Reset counter if we found data
+                consecutive_empty_pages = 0
+
             # If fewer than max_records, we've reached the end
             if len(data) < self.max_records:
+                logging.info(f"Stopping at page {page}: Retrieved {len(data)} < {self.max_records} records (end of data)")
                 break
 
             page += 1
