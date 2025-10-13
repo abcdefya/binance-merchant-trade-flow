@@ -371,7 +371,7 @@ class PostgreSQLClient:
 
 
                 # Pause before checking/processing this record (requested delay)
-                # sleep(2)
+                sleep(2)
 
                 # Fetch current status if exists
                 select_sql = f"SELECT order_status FROM {table} WHERE order_number = %s LIMIT 1"
