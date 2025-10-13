@@ -100,9 +100,9 @@ services:
     ports:
       - "5433:5432"  # Đổi cổng host sang 5433 để tránh trùng với Postgres chính (5432)
     environment:
-      POSTGRES_DB: ${HIVE_POSTGRES_DB}
-      POSTGRES_USER: ${HIVE_METASTORE_USER}
-      POSTGRES_PASSWORD: ${HIVE_METASTORE_PASSWORD}
+      POSTGRES_DB: loncak 
+      POSTGRES_USER: loncak
+      POSTGRES_PASSWORD: loncak
     volumes:
       - c2c-cdc_hive_postgres_data:/var/lib/postgresql/data
       - ./init-hive.sql:/docker-entrypoint-initdb.d/init.sql  # Script init DB cho Hive (tạo nếu cần)
