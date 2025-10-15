@@ -1,5 +1,5 @@
 # Binance Merchant Trading Data Engineering Pipeline
-
+too tireddd
 A comprehensive data engineering solution for Binance merchant trading data using **Medallion Architecture (Bronze → Silver → Gold)** with modern AWS services and CI/CD integration.
 
 ## 🏗️ Architecture Overview
