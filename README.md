@@ -4,7 +4,7 @@ my back is killing me
 A comprehensive data engineering solution for Binance merchant trading data using **Medallion Architecture (Bronze → Silver → Gold)** with modern AWS services and CI/CD integration.
 
 ## 🏗️ Architecture Overview
-
+keeping my streak
 This project implements a **Batch ELT Lakehouse Pattern** with the following layers:
 
 - **🥉 Bronze Layer**: Raw data ingestion from Binance API
