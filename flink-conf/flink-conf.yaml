@@ -54,6 +54,32 @@ taskmanager.memory.process.size: 1728m
 taskmanager.numberOfTaskSlots: 2
 
 
+jobmanager.rpc.address: eafa498412fc
+jobmanager.memory.process.size: 1600m
+taskmanager.memory.process.size: 1728m
+taskmanager.numberOfTaskSlots: 2
+
+
+jobmanager.rpc.address: eafa498412fc
+rest.port: 8081
+jobmanager.memory.process.size: 1600m
+taskmanager.memory.process.size: 1728m
+taskmanager.numberOfTaskSlots: 2
+
+
+jobmanager.rpc.address: eafa498412fc
+jobmanager.memory.process.size: 1600m
+taskmanager.memory.process.size: 1728m
+taskmanager.numberOfTaskSlots: 2
+
+
+jobmanager.rpc.address: eafa498412fc
+rest.port: 8081
+jobmanager.memory.process.size: 1600m
+taskmanager.memory.process.size: 1728m
+taskmanager.numberOfTaskSlots: 2
+
+
 jobmanager.rpc.address: flink-jobmanager
 jobmanager.memory.process.size: 1600m
 taskmanager.memory.process.size: 1728m

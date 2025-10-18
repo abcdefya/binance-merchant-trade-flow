@@ -230,3 +230,8 @@ great_expectations/uncommitted/
 # uv and project files to ignore
 uv.lock
 pyproject.toml
+
+# uv local caches (if created in repo)
+.uv/
+.uv-cache/
+.uv_cache/
