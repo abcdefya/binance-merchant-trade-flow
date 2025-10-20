@@ -1,0 +1,12 @@
+apache-flink
+pyspark
+delta-spark
+minio
+deltalake
+PyYAML
+pandas
+psycopg2-binary
+SQLAlchemy
+transformers
+loguru
+

@@ -283,6 +283,19 @@ services:
     volumes: 
       - c2c-cdc_postgres_data:/var/lib/postgresql/data
 
+  trino:
+    ports:
+      - "8084:8080"
+    container_name: c2c-cdc-trino
+    image: "trinodb/trino:410"
+    hostname: trino
+    volumes:
+      - ./trino/etc:/usr/lib/trino/etc:ro
+      - ./trino/catalog:/etc/trino/catalog
+    depends_on:
+      - hive-metastore
+
+
 volumes:
   c2c-cdc_postgres_data:
   c2c-cdc_hive_postgres_data:
