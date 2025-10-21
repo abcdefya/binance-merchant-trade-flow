@@ -1,0 +1,4 @@
+pyspark==3.5.0
+delta-spark==2.4.0
+minio==7.2.0
+
