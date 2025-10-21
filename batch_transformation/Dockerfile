@@ -1,5 +1,6 @@
 # Use official Spark image with Python support
-FROM apache/spark:3.5.0-python3
+# Spark 3.4.1 is compatible with Delta Lake 2.4.0
+FROM apache/spark:3.4.1-python3
 
 # Switch to root to install packages
 USER root
@@ -25,7 +26,7 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir pyspark==3.5.0 delta-spark==2.4.0 minio
+    pip install --no-cache-dir pyspark==3.4.1 delta-spark==2.4.0 minio
 
 # Copy the ELT script
 COPY elt_script.py .
@@ -37,9 +38,8 @@ ENV PATH=$SPARK_HOME/bin:$PATH
 
 # Default environment variables for MinIO (override these in docker-compose)
 ENV MINIO_ENDPOINT=http://minio:9000
-ENV MINIO_ACCESS_KEY=minioadmin
-ENV MINIO_SECRET_KEY=minioadmin
-ENV MINIO_SECURE=false
+ENV AWS_ACCESS_KEY_ID=minioadmin
+ENV AWS_SECRET_ACCESS_KEY=minioadmin
 ENV BRONZE_PATH=s3a://bronze/c2c_trades/
 ENV SILVER_PATH=s3a://silver/c2c_trades/
 
