@@ -5,7 +5,12 @@ __pycache__/
 
 # C extensions
 *.so
-
+flink-conf/
+hive-conf/
+init-hive.sql
+plugins/
+trino/
+logs/
 # Distribution / packaging
 .Python
 build/

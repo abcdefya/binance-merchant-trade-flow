@@ -47,12 +47,13 @@ ENV SILVER_PATH=s3a://silver/c2c_trades/
 USER spark
 
 # Run the ELT script with spark-submit
-ENTRYPOINT ["spark-submit", \
-    "--master", "local[*]", \
-    "--deploy-mode", "client", \
-    "--conf", "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension", \
-    "--conf", "spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog", \
-    "--conf", "spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem", \
-    "--conf", "spark.hadoop.fs.s3a.path.style.access=true", \
-    "elt_script.py"]
+# ENTRYPOINT ["spark-submit", \
+#     "--master", "local[*]", \
+#     "--deploy-mode", "client", \
+#     "--conf", "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension", \
+#     "--conf", "spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog", \
+#     "--conf", "spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem", \
+#     "--conf", "spark.hadoop.fs.s3a.path.style.access=true", \
+#     "elt_script.py"]
 
+ENTRYPOINT ["python3", "elt_script.py"]

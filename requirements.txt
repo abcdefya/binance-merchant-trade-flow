@@ -1,12 +1,13 @@
-apache-flink
-pyspark
-delta-spark
-minio
-deltalake
+# apache-flink
+# pyspark
+# delta-spark
+binance_sdk_c2c
+# minio
+# deltalake
 PyYAML
 pandas
 psycopg2-binary
 SQLAlchemy
-transformers
+# transformers
 loguru
 
