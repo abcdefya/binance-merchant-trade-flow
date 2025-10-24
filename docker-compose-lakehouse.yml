@@ -1,4 +1,8 @@
 version: '3.8'
+x-lakehouse-common:
+  &lakehouse-common
+  env_file:
+    - .env
 services:
   # Partition leader election, store Kafka configuration's settings,
   # and other metadata (list of brokers, number of partitions, number of
@@ -114,6 +118,7 @@ services:
 
   # MinIO cho S3-compatible storage (thêm từ config Delta Lake)
   minio:
+    <<: *lakehouse-common
     image: minio/minio:latest
     container_name: c2c-cdc-minio
     ports:
@@ -259,14 +264,15 @@ services:
       debezium:
         condition: service_healthy
     ports:
-      - '8080:8080'
+      - '8086:8080'
     environment:
       KAFKA_CONNECT_URIs: http://debezium:8083
 
   postgresql:
     # Set wal_level from replica (default) to logical
     # so that Debezium can capture change
-    image: postgres:latest
+    <<: *lakehouse-common
+    image: postgres:16
     command: ['postgres', '-c', 'wal_level=logical']
     container_name: c2c-cdc-postgresql
     healthcheck:
@@ -280,6 +286,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
     volumes: 
       - c2c-cdc_postgres_data:/var/lib/postgresql/data
 
@@ -296,21 +303,16 @@ services:
       - hive-metastore
 
   batch-transformation:
+    image: spark-elt:latest
     build:
-      context: ./batch_transformation
-      dockerfile: Dockerfile
-    container_name: c2c-cdc-batch-transformation
+      context: ./src/batch_transformation
+      dockerfile: Dockerfile.spark
+    <<: *lakehouse-common
+    profiles:
+      - manual
     depends_on:
       - minio
       - hive-metastore
-    environment:
-      - MINIO_ENDPOINT=http://minio:9000
-      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER}
-      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
-      - BRONZE_PATH=s3a://bronze/c2c_trades/
-      - SILVER_PATH=s3a://silver/c2c_trades/
-    networks:
-      - default
 
 
 
