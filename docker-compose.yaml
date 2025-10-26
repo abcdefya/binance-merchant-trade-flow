@@ -43,20 +43,6 @@
 #                                Default: ''
 #
 # Feel free to modify this file to suit your needs.
-services:
-  docker-proxy:
-    image: docker:27-dind
-    privileged: true
-    environment:
-      DOCKER_TLS_CERTDIR: ""
-    command:
-      - --host=tcp://0.0.0.0:2375
-      - --host=unix:///var/run/docker.sock
-    expose:
-      - "2375"
-    volumes:
-      - docker-proxy-data:/var/lib/docker
-    restart: always
 
 
 x-airflow-common:
@@ -95,6 +81,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - shared-volume:/shared_volume
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -282,6 +269,15 @@ services:
         echo
         ls -la /opt/airflow/{logs,dags,plugins,config}
         echo
+        echo "Preparing shared volume at /shared_volume"
+        echo
+        mkdir -p /shared_volume/c2c/latest || true
+        chown -R "${AIRFLOW_UID}:0" /shared_volume || true
+        chmod -R 0775 /shared_volume || true
+        echo
+        echo "Shared volume listing:"
+        ls -la /shared_volume || true
+        echo
         echo "Running airflow config list to create default config file if missing."
         echo
         /entrypoint airflow config list >/dev/null
@@ -351,3 +347,5 @@ services:
 
 volumes:
   postgres-db-volume:
+  shared-volume:
+    name: shared-volume
