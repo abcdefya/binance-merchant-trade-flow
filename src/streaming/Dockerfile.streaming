@@ -1,0 +1,13 @@
+FROM python:3.10.18-slim
+
+USER root
+# Install system dependencies
+WORKDIR /app
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+COPY jars/ jars/
+COPY postgres.py .
