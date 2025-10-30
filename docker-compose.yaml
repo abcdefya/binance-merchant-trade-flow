@@ -83,6 +83,9 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - shared-volume:/shared_volume
   user: "${AIRFLOW_UID:-50000}:0"
+  networks:
+    - default
+    - lakehouse
   depends_on:
     &airflow-common-depends-on
     redis:
@@ -271,7 +274,8 @@ services:
         echo
         echo "Preparing shared volume at /shared_volume"
         echo
-        mkdir -p /shared_volume/c2c/latest || true
+        mkdir -p /shared_volume/c2c/batch || true
+        mkdir -p /shared_volume/c2c/streaming || true
         chown -R "${AIRFLOW_UID}:0" /shared_volume || true
         chmod -R 0775 /shared_volume || true
         echo
@@ -349,3 +353,10 @@ volumes:
   postgres-db-volume:
   shared-volume:
     name: shared-volume
+
+networks:
+  default:
+    name: airflow_default
+  lakehouse:
+    external: true
+    name: binance-merchant-trading-flow_default
