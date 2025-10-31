@@ -1,0 +1,30 @@
+FROM python:3.10
+
+USER root
+
+# Install system dependencies including Java (required for PyFlink)
+WORKDIR /app
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    default-jdk \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Java environment variables (auto-detect JAVA_HOME)
+ENV JAVA_HOME=/usr/lib/jvm/default-java
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files
+COPY jars/ jars/
+COPY flink_streaming.py .
+COPY postgres.py .
+
+# Set working directory
+WORKDIR /app
+
+# Default command - can be overridden in docker-compose or DAG
+CMD ["python", "flink_streaming.py"]

@@ -6,6 +6,7 @@ binance_sdk_c2c
 # deltalake
 PyYAML
 pandas
+pyarrow
 psycopg2-binary
 SQLAlchemy
 # transformers

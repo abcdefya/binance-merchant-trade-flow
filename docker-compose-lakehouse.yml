@@ -314,6 +314,37 @@ services:
       - minio
       - hive-metastore
 
+  # Flink Consumer - 24/7 streaming service to consume Kafka CDC events
+  flink-consumer:
+    build:
+      context: ./src/streaming
+      dockerfile: Dockerfile.streaming
+    image: flink-streaming:latest
+    container_name: c2c-flink-consumer
+    restart: unless-stopped  # Auto-restart on failure, except manual stop
+    <<: *lakehouse-common
+    depends_on:
+      broker:
+        condition: service_healthy
+      postgresql:
+        condition: service_healthy
+      debezium:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      KAFKA_TOPIC: binance.c2c.trades
+      KAFKA_GROUP_ID: flink-streaming-consumer
+      POSTGRES_HOST: postgresql
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: loncak
+      POSTGRES_USER: loncak
+      POSTGRES_PASSWORD: loncak
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 
 
 volumes:
@@ -321,3 +352,7 @@ volumes:
   c2c-cdc_hive_postgres_data:
   c2c-cdc_minio_data:
   c2c-cdc_flink_data:
+
+networks:
+  default:
+    name: binance-merchant-trading-flow_default

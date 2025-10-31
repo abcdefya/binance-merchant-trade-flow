@@ -32,6 +32,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY bronze_jobs.py .
 COPY silver_jobs.py .
 COPY spark_utils.py .
+COPY gold_jobs.py .
 
 # Set environment variables (can be overridden at runtime)
 ENV SPARK_HOME=/opt/spark
