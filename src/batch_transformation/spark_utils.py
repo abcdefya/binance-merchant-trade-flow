@@ -58,6 +58,15 @@ def create_spark_session(
         .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
         .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
         .config("spark.delta.logStore.class", "org.apache.spark.sql.delta.storage.S3SingleDriverLogStore")
+        # Memory configurations to prevent OOM
+        .config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "2g"))
+        .config("spark.executor.memory", os.getenv("SPARK_EXECUTOR_MEMORY", "2g"))
+        .config("spark.driver.maxResultSize", "1g")
+        .config("spark.sql.shuffle.partitions", "200")
+        # Optimize for window operations
+        .config("spark.sql.windowExec.buffer.spill.threshold", "10000")
+        .config("spark.sql.adaptive.enabled", "true")
+        .config("spark.sql.adaptive.coalescePartitions.enabled", "true")
         .getOrCreate()
     )
     return spark

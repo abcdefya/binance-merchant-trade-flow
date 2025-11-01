@@ -6,7 +6,7 @@ from minio import Minio
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import (
     col, current_date, from_unixtime, to_date, upper, lower, when,
-    coalesce, count, round, lit
+    coalesce, count, round, lit, year, month, dayofmonth
 )
 from pyspark.sql.types import DecimalType
 from decimal import Decimal
@@ -113,6 +113,11 @@ def main() -> None:
         if drop_cols:
             df = df.drop(*drop_cols)
 
+        # Add partition columns (year, month, day) based on trade_date
+        df = df.withColumn("year", year(col("trade_date")))
+        df = df.withColumn("month", month(col("trade_date")))
+        df = df.withColumn("day", dayofmonth(col("trade_date")))
+
         # Select and alias to standardized schema
         df_silver = df.select(
             (col(order_number_col) if order_number_col else lit(None)).alias("order_number"),
@@ -129,6 +134,9 @@ def main() -> None:
             col("commission"),
             col("total_vnd"),
             col("net_volume"),
+            col("year"),
+            col("month"),
+            col("day"),
         )
 
         # Show sample
@@ -167,7 +175,7 @@ def main() -> None:
                 df_silver.drop("status_priority")
                 .write.format("delta")
                 .mode("append")
-                .partitionBy("trade_date")
+                .partitionBy("year", "month", "day")
                 .save(SILVER_PATH)
             )
             logger.info("Bootstrap write completed.")
@@ -206,6 +214,9 @@ def main() -> None:
                     "unit_price": col("source.unit_price"),
                     "trade_time": col("source.trade_time"),
                     "trade_date": col("source.trade_date"),
+                    "year": col("source.year"),
+                    "month": col("source.month"),
+                    "day": col("source.day"),
                 },
             ).whenNotMatchedInsertAll().execute()
 

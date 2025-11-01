@@ -201,13 +201,16 @@ def main() -> None:
             col("sell_total_vnd") - col("buy_total_vnd")
         )
 
-        # Add FKs and cumulative
+        # Add FKs, partition columns, and cumulative
         df_fact = (
             df_fact_agg
             .withColumn(
                 "date_key",
                 (year("trade_date") * 10000 + month("trade_date") * 100 + dayofmonth("trade_date")).cast(IntegerType()),
             )
+            .withColumn("year", year(col("trade_date")))
+            .withColumn("month", month(col("trade_date")))
+            .withColumn("day", dayofmonth(col("trade_date")))
             .join(
                 spark.table("dim_asset_view").select("asset_key", "asset_code"),
                 col("asset") == col("asset_code"),
@@ -223,6 +226,13 @@ def main() -> None:
             .withColumn("last_updated", current_timestamp())
         )
 
+        # Persist before window operations to reduce memory pressure
+        df_fact.persist()
+        logger.info("Persisted fact dataframe before window operations. Row count: %s", df_fact.count())
+
+        # Repartition by window partition keys to optimize memory usage
+        df_fact = df_fact.repartition("asset", "fiat")
+
         window_spec_usdt = Window.partitionBy("asset").orderBy("trade_date").rowsBetween(Window.unboundedPreceding, Window.currentRow)
         window_spec_vnd = Window.partitionBy("fiat").orderBy("trade_date").rowsBetween(Window.unboundedPreceding, Window.currentRow)
 
@@ -233,6 +243,9 @@ def main() -> None:
             "cumulative_net_vnd",
             spark_sum("daily_net_vnd").over(window_spec_vnd)
         )
+        
+        # Unpersist after window operations
+        df_fact.unpersist()
 
         # Handle NULLs
         df_fact = df_fact.fillna(0, subset=["avg_unit_buy_price", "avg_unit_sell_price", "price_spread", "total_orders", "canceled_orders"])
@@ -259,7 +272,7 @@ def main() -> None:
             .format("delta")
             .mode("overwrite")
             .option("mergeSchema", "true")
-            .partitionBy("date_key")
+            .partitionBy("year", "month", "day")
             .save(fact_path)
         )
         logger.info("Write completed successfully.")

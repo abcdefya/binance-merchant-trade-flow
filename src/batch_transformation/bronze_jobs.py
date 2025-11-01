@@ -4,7 +4,7 @@ from typing import Optional
 
 from minio import Minio
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, current_date, from_unixtime, to_date
+from pyspark.sql.functions import col, current_date, from_unixtime, to_date, year, month, dayofmonth
 
 from spark_utils import (
     check_minio_connectivity,
@@ -28,8 +28,14 @@ logger.info("SILVER_PATH: %s", SILVER_PATH)
 
 
 def add_trade_date(df: DataFrame) -> DataFrame:
-    """Add 'trade_date' column based on available timestamp columns."""
+    """Add 'trade_date' column and partition columns (year, month, day) based on available timestamp columns."""
     if "trade_date" in df.columns:
+        # If trade_date exists, add partition columns
+        df = (
+            df.withColumn("year", year(col("trade_date")))
+            .withColumn("month", month(col("trade_date")))
+            .withColumn("day", dayofmonth(col("trade_date")))
+        )
         return df
 
     timestamp_col: Optional[str] = None
@@ -46,13 +52,22 @@ def add_trade_date(df: DataFrame) -> DataFrame:
             df.withColumn(
                 "createTime_ts",
                 from_unixtime((col(timestamp_col) / 1000) + 7 * 3600),
-            ).withColumn("trade_date", to_date(col("createTime_ts")))
+            )
+            .withColumn("trade_date", to_date(col("createTime_ts")))
+            .withColumn("year", year(col("createTime_ts")))
+            .withColumn("month", month(col("createTime_ts")))
+            .withColumn("day", dayofmonth(col("createTime_ts")))
         )
     else:
         logger.warning(
             "No create time column found, using current_date for partitioning"
         )
-        df = df.withColumn("trade_date", current_date())
+        df = (
+            df.withColumn("trade_date", current_date())
+            .withColumn("year", year(current_date()))
+            .withColumn("month", month(current_date()))
+            .withColumn("day", dayofmonth(current_date()))
+        )
     
     return df
 
@@ -90,7 +105,7 @@ def main() -> None:
         (
             df.write.format("delta")
             .mode("append")
-            .partitionBy("trade_date")
+            .partitionBy("year", "month", "day")
             .save(BRONZE_PATH)
         )
         logger.info("Write completed successfully.")
