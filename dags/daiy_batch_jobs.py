@@ -37,7 +37,7 @@ def fetch_yesterday_trades():
             base_path=os.getenv("BASE_PATH", C2C_REST_API_PROD_URL),
         )
         client = C2CExtended(configuration_rest_api)
-        data = client.get_yesterday()
+        data = client.get_latest()
 
         # Write parquet to shared volume
         base_dir = "/shared_volume/c2c/latest"
