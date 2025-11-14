@@ -11,7 +11,6 @@ from spark_utils import (
     create_spark_session,
 )
 
-# --------------------- CONFIG & LOGGING ---------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logger.info("Starting Spark session...")
