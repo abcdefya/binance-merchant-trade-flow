@@ -37,7 +37,7 @@ def fetch_yesterday_trades():
             base_path=os.getenv("BASE_PATH", C2C_REST_API_PROD_URL),
         )
         client = C2CExtended(configuration_rest_api)
-        data = client.get_latest()
+        data = client.get_latest_by_week()
 
         # Write parquet to shared volume
         base_dir = "/shared_volume/c2c/latest"
@@ -107,7 +107,7 @@ with DAG(
         mount_tmp_dir=False,
         docker_url=os.getenv("DOCKER_URL", "tcp://host.docker.internal:2375"),
         network_mode=os.getenv("LAKEHOUSE_NETWORK", "binance-merchant-trading-flow_default"),
-        mem_limit="3g",  # Silver layer needs moderate memory for transformations
+        mem_limit="4g",  # Increase container memory for Delta merge operations
         environment={
             "JOB_SCRIPT": "silver_jobs.py",
             "INPUT_PATH": "/shared_volume/c2c/latest/*.parquet",
@@ -118,7 +118,7 @@ with DAG(
             "SILVER_PATH": os.getenv("SILVER_PATH", "s3a://silver/c2c_trades/"),
             "DATE_FILTER": os.getenv("DATE_FILTER", None),
             "SPARK_DRIVER_MEMORY": "2g",
-            "SPARK_EXECUTOR_MEMORY": "2g",
+            "SPARK_EXECUTOR_MEMORY": "1g",
         },
         mounts=[
             Mount(source="shared-volume", target="/shared_volume", type="volume", read_only=False),
@@ -145,8 +145,8 @@ with DAG(
             "GOLD_PATH": os.getenv("GOLD_PATH", "s3a://gold/"),
             "DATE_FILTER": os.getenv("DATE_FILTER", None),
             # Spark memory configuration (within container's 4GB limit)
-            "SPARK_DRIVER_MEMORY": "3g",
-            "SPARK_EXECUTOR_MEMORY": "2g",
+            "SPARK_DRIVER_MEMORY": "2g",
+            "SPARK_EXECUTOR_MEMORY": "1g",
         },
         mounts=[
             Mount(source="shared-volume", target="/shared_volume", type="volume", read_only=False),
@@ -159,3 +159,5 @@ with DAG(
     )
 
     fetch_daily >> bronze_task >> silver_task >> gold_task >> cleanup_shared
+
+
