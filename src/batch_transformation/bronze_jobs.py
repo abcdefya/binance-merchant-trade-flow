@@ -4,114 +4,168 @@ from typing import Optional
 
 from minio import Minio
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, current_date, from_unixtime, to_date, year, month, dayofmonth
+from pyspark.sql.functions import (
+    col,
+    from_unixtime,
+    from_utc_timestamp,
+    to_date,
+    year,
+    month,
+    dayofmonth,
+    current_date
+)
+from pyspark.sql.types import LongType
 
 from spark_utils import (
     check_minio_connectivity,
     create_spark_session,
 )
 
-# --------------------- CONFIG & LOGGING ---------------------
+
+# --------------------- LOGGING & CONFIG ---------------------
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-logger.info("Starting Spark session...")
+logger = logging.getLogger("bronze_job")
+logger.info("Starting Bronze Job (Production Optimized)...")
 
 MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "http://minio:9000")
 ACCESS_KEY = os.getenv("MINIO_ROOT_USER", os.getenv("AWS_ACCESS_KEY_ID", ""))
 SECRET_KEY = os.getenv("MINIO_ROOT_PASSWORD", os.getenv("AWS_SECRET_ACCESS_KEY", ""))
 BRONZE_PATH = os.getenv("BRONZE_PATH", "s3a://bronze/c2c_trades/")
-SILVER_PATH = os.getenv("SILVER_PATH", "s3a://silver/c2c_trades/")
 
-logger.info("MINIO_ENDPOINT: %s", MINIO_ENDPOINT)
-logger.info("BRONZE_PATH: %s", BRONZE_PATH)
-logger.info("SILVER_PATH: %s", SILVER_PATH)
 
+# =====================================================================
+# 1. SAFE TRADE DATE EXTRACTION
+# =====================================================================
 
 def add_trade_date(df: DataFrame) -> DataFrame:
-    """Add 'trade_date' column and partition columns (year, month, day) based on available timestamp columns."""
-    if "trade_date" in df.columns:
-        # If trade_date exists, add partition columns
-        df = (
-            df.withColumn("year", year(col("trade_date")))
-            .withColumn("month", month(col("trade_date")))
-            .withColumn("day", dayofmonth(col("trade_date")))
-        )
-        return df
+    """
+    Add `trade_date` + year/month/day partitions.
+    Handles timestamp columns correctly and ensures proper timezone.
+    """
 
-    timestamp_col: Optional[str] = None
-    if "createTime" in df.columns:
-        timestamp_col = "createTime"
-    elif "create_time_ms" in df.columns:
-        timestamp_col = "create_time_ms"
-    elif "create_time" in df.columns:
-        timestamp_col = "create_time"
-    
-    if timestamp_col:
-        # Convert from ms (assuming UTC) to timestamp with UTC+7 adjustment, then to date
-        df = (
-            df.withColumn(
-                "createTime_ts",
-                from_unixtime((col(timestamp_col) / 1000) + 7 * 3600),
-            )
-            .withColumn("trade_date", to_date(col("createTime_ts")))
-            .withColumn("year", year(col("createTime_ts")))
-            .withColumn("month", month(col("createTime_ts")))
-            .withColumn("day", dayofmonth(col("createTime_ts")))
+    # If already exists (e.g., re-ingest)
+    if "trade_date" in df.columns:
+        logger.info("trade_date already exists → only generating partitions.")
+        return (
+            df.withColumn("year", year("trade_date"))
+              .withColumn("month", month("trade_date"))
+              .withColumn("day", dayofmonth("trade_date"))
         )
-    else:
-        logger.warning(
-            "No create time column found, using current_date for partitioning"
+
+    # Detect timestamp column
+    timestamp_col = None
+    for c in ["createTime", "create_time_ms", "create_time"]:
+        if c in df.columns:
+            timestamp_col = c
+            break
+
+    if not timestamp_col:
+        raise Exception(
+            "❌ No timestamp column found (createTime/create_time_ms/create_time).\n"
+            "Bronze ingest cannot determine trade_date."
         )
-        df = (
-            df.withColumn("trade_date", current_date())
-            .withColumn("year", year(current_date()))
-            .withColumn("month", month(current_date()))
-            .withColumn("day", dayofmonth(current_date()))
-        )
-    
+
+    logger.info(f"Using timestamp column: {timestamp_col}")
+
+    # Force timestamp column to long(epoch ms)
+    df = df.withColumn(timestamp_col, col(timestamp_col).cast(LongType()))
+
+    # Convert epoch(ms) → timestamp(UTC) → timestamp(Asia/Ho_Chi_Minh)
+    df = df.withColumn(
+        "create_ts_utc",
+        from_unixtime(col(timestamp_col) / 1000)  # epoch → string timestamp UTC
+    ).withColumn(
+        "create_ts",
+        from_utc_timestamp("create_ts_utc", "Asia/Ho_Chi_Minh")
+    )
+
+    # Create trade_date + partitions
+    df = (
+        df.withColumn("trade_date", to_date("create_ts"))
+          .withColumn("year", year("trade_date"))
+          .withColumn("month", month("trade_date"))
+          .withColumn("day", dayofmonth("trade_date"))
+          .drop("create_ts_utc")    # cleanup
+          .drop("create_ts")
+    )
+
     return df
 
 
-def main() -> None:
-    """Main entry point for the script."""
+# =====================================================================
+# 2. DUPLICATE PROTECTION
+# =====================================================================
+
+def deduplicate(df: DataFrame) -> DataFrame:
+    """
+    Drop duplicates by orderNumber (if exists).
+    This protects Bronze from re-ingestion duplication.
+    """
+    if "orderNumber" in df.columns:
+        before = df.count()
+        df = df.dropDuplicates(["orderNumber"])
+        after = df.count()
+        logger.info(f"Deduplication: {before} → {after} rows after removing duplicates.")
+    else:
+        logger.warning("No orderNumber column found → skipping deduplication.")
+
+    return df
+
+
+# =====================================================================
+# 3. MAIN PROCESS
+# =====================================================================
+
+def main():
     try:
         spark = create_spark_session()
         spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
-        logger.info("SparkSession created with MinIO and Delta config.")
 
         check_minio_connectivity(MINIO_ENDPOINT, ACCESS_KEY, SECRET_KEY, BRONZE_PATH)
-        logger.info("MinIO connectivity check completed.")
 
         input_path = os.getenv("INPUT_PATH", "/shared_volume/c2c/latest/*.parquet")
-        logger.info("Reading input data from: %s", input_path)
+        logger.info(f"Reading input data from: {input_path}")
 
-        df = spark.read.parquet(input_path)
-        logger.info("Schema:")
+        df = (
+            spark.read
+                .option("mergeSchema", "false")
+                .parquet(input_path)
+        )
+
+        logger.info("Schema loaded:")
         df.printSchema()
 
+        # Extract trade_date safely
         df = add_trade_date(df)
 
-        # Show sample using available columns
-        sample_cols = [
-            c for c in ("createTime", "create_time", "trade_date") if c in df.columns
-        ]
-        if sample_cols:
-            df.select(*sample_cols).show(5, truncate=False)
+        # Protect Bronze from duplicates
+        df = deduplicate(df)
 
-        count = df.count()
-        logger.info("Input row count: %s", count)
+        # Reduce small files → make Silver faster
+        df = df.coalesce(4)
 
-        logger.info("Writing to Delta Lake (append mode) → %s", BRONZE_PATH)
+        # Final sanity check
+        null_partitions = df.filter(
+            col("year").isNull() | col("month").isNull() | col("day").isNull()
+        ).count()
+
+        if null_partitions > 0:
+            raise Exception(f"❌ Found {null_partitions} rows with NULL partitions (year/month/day).")
+
+        # Write to Delta Lake
+        logger.info(f"Writing to Bronze Delta → {BRONZE_PATH}")
+
         (
             df.write.format("delta")
-            .mode("append")
-            .partitionBy("year", "month", "day")
-            .save(BRONZE_PATH)
+              .mode("append")
+              .partitionBy("year", "month", "day")
+              .save(BRONZE_PATH)
         )
-        logger.info("Write completed successfully.")
+
+        logger.info("✅ Bronze write completed successfully!")
 
     except Exception as e:
-        logger.exception("Error during execution: %s", e)
+        logger.exception(f"❌ Bronze Job Failed: {e}")
         raise
     finally:
         if "spark" in locals():
