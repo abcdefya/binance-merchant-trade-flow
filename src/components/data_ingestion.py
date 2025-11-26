@@ -55,8 +55,6 @@ class C2CExtended(C2C):
         @retry(exceptions=(Exception,), tries=3, delay_seconds=1.0, backoff=2.0)
         def _get_page(p: int):
             return self.rest_api.get_c2_c_trade_history(
-                start_time=start_time,
-                end_time=end_time,
                 page=p,
                 recv_window=60000,
             )
