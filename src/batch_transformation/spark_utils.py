@@ -62,7 +62,7 @@ def create_spark_session(
         .config("spark.driver.memory", os.getenv("SPARK_DRIVER_MEMORY", "2g"))
         .config("spark.executor.memory", os.getenv("SPARK_EXECUTOR_MEMORY", "2g"))
         .config("spark.driver.maxResultSize", "1g")
-        .config("spark.sql.shuffle.partitions", "200")
+        .config("spark.sql.shuffle.partitions", "4")
         # Optimize for window operations
         .config("spark.sql.windowExec.buffer.spill.threshold", "10000")
         .config("spark.sql.adaptive.enabled", "true")
