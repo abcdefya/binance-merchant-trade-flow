@@ -21,18 +21,22 @@ RUN mkdir -p /opt/spark/jars && \
     wget -q -P /opt/spark/jars https://repo1.maven.org/maven2/io/delta/delta-core_2.12/2.4.0/delta-core_2.12-2.4.0.jar && \
     wget -q -P /opt/spark/jars https://repo1.maven.org/maven2/io/delta/delta-storage/2.4.0/delta-storage-2.4.0.jar
 
-# Copy requirements file
+# Copy requirements file and configuration files
 COPY requirements.txt .
+COPY google-authentication.json /app/google-authentication.json
+COPY configs.spark.yaml /app/configs.yaml
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir pyspark==3.4.1 delta-spark==2.4.0 minio
+    pip install --no-cache-dir pyspark==3.4.1 delta-spark==2.4.0 minio && \
+    pip install --no-cache-dir google-cloud-storage pyyaml
 
 # Copy the ELT script
-COPY bronze_jobs.py .
-COPY silver_jobs.py .
-COPY spark_utils.py .
-COPY gold_jobs.py .
+COPY bronze_jobs.py /app/
+COPY silver_jobs.py /app/
+COPY spark_utils.py /app/
+COPY gcs_manager.py /app/
+COPY gold_jobs.py /app/
 
 # Set environment variables (can be overridden at runtime)
 ENV SPARK_HOME=/opt/spark
@@ -50,7 +54,8 @@ ENV PATH=$SPARK_HOME/bin:$PATH
 USER spark
 
 # Run the ELT script with spark-submit; allow selecting job via JOB_SCRIPT env (default bronze)
-ENTRYPOINT ["bash", "-lc", "spark-submit \
+# Set working directory to /app so scripts can find credentials and configs
+ENTRYPOINT ["bash", "-lc", "cd /app && spark-submit \
     --master local[*] \
     --deploy-mode client \
     --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension \
