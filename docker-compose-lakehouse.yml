@@ -313,6 +313,12 @@ services:
     depends_on:
       - minio
       - hive-metastore
+    deploy:
+      resources:
+        limits:
+          memory: 4G  # Increase memory limit for Spark + GCS upload
+        reservations:
+          memory: 2G
 
   # Flink Consumer - 24/7 streaming service to consume Kafka CDC events
   flink-consumer:
