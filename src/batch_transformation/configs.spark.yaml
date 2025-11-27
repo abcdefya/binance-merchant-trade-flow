@@ -1,0 +1,17 @@
+gcs:
+  credential_path: "/app/google-authentication.json"  # Absolute path trong container
+  default_bucket: "my-demo-bucket-202225-xyz"
+  default_location: "asia"
+
+upload:
+  source_folder: "/app/data"
+  destination_prefix: "dataset_backup"
+
+gold_backup:
+  enabled: true
+  backup_bucket: "my-demo-bucket-202225-xyz"
+  backup_prefix: "gold_backup"
+  backup_mode: "delta"  # "delta" or "parquet"
+  workers: 16  # Parallel upload workers
+  use_threads: false  # false = process mode, true = thread mode
+
