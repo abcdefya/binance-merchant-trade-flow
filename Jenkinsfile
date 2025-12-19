@@ -2,25 +2,24 @@ pipeline {
   agent any
 
   environment {
-    GCR_REGION = "asia-southeast1"
-    GCR_HOST   = "asia-southeast1-docker.pkg.dev"
-    GCR_REPO   = "docker-images"
+    GAR_HOST = "asia-southeast1-docker.pkg.dev"
+    GAR_REPO = "docker-images"
   }
 
   stages {
 
-    /* ============================
-     * Clean
-     * ============================ */
+    /* ===============================
+     * CLEAN
+     * =============================== */
     stage('Clean Workspace') {
       steps {
         cleanWs()
       }
     }
 
-    /* ============================
-     * Checkout Source
-     * ============================ */
+    /* ===============================
+     * CHECKOUT
+     * =============================== */
     stage('Git Checkout') {
       steps {
         git branch: 'gcp_deployment',
@@ -30,25 +29,21 @@ pipeline {
     }
 
     /* =====================================================
-     * Batch Processing
+     * BATCH PROCESSING
      * ===================================================== */
     stage('Batch: Build & Deploy') {
       when {
         changeset "dockerfiles/batch-processing/**"
       }
-
-      environment {
-        IMAGE_NAME = "batch-app"
-      }
-
       stages {
 
         stage('Build Batch Image') {
           steps {
             sh '''
+              set -e
               docker build \
                 -f dockerfiles/batch-processing/Dockerfile \
-                -t ${IMAGE_NAME}:latest .
+                -t batch-app:latest .
             '''
           }
         }
@@ -60,14 +55,12 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
+                set -e
                 export PATH="/usr/lib/google-cloud-sdk/bin:$PATH"
-
-                which gcloud
-                gcloud --version
 
                 gcloud auth activate-service-account --key-file="$GCP_KEY"
                 gcloud config set project "$GCP_PROJECT"
-                gcloud auth configure-docker ${GCR_HOST} -q
+                gcloud auth configure-docker asia-southeast1-docker.pkg.dev -q
               '''
             }
           }
@@ -79,9 +72,10 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
-                IMAGE_URI=${GCR_HOST}/${GCP_PROJECT}/${GCR_REPO}/${IMAGE_NAME}:latest
-                docker tag ${IMAGE_NAME}:latest ${IMAGE_URI}
-                docker push ${IMAGE_URI}
+                set -e
+                IMAGE=${GAR_HOST}/${GCP_PROJECT}/${GAR_REPO}/batch-app:latest
+                docker tag batch-app:latest $IMAGE
+                docker push $IMAGE
               '''
             }
           }
@@ -90,25 +84,21 @@ pipeline {
     }
 
     /* =====================================================
-     * Streaming Processing (TAG = GIT COMMIT)
+     * STREAMING PROCESSING (TAG = GIT COMMIT)
      * ===================================================== */
     stage('Streaming: Build & Deploy') {
       when {
         changeset "dockerfiles/streaming-processing/**"
       }
-
-      environment {
-        IMAGE_NAME = "stream-app"
-      }
-
       stages {
 
         stage('Build Streaming Image') {
           steps {
             sh '''
+              set -e
               docker build \
                 -f dockerfiles/streaming-processing/Dockerfile \
-                -t ${IMAGE_NAME}:latest .
+                -t stream-app:latest .
             '''
           }
         }
@@ -120,14 +110,12 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
+                set -e
                 export PATH="/usr/lib/google-cloud-sdk/bin:$PATH"
-
-                which gcloud
-                gcloud --version
 
                 gcloud auth activate-service-account --key-file="$GCP_KEY"
                 gcloud config set project "$GCP_PROJECT"
-                gcloud auth configure-docker ${GCR_HOST} -q
+                gcloud auth configure-docker asia-southeast1-docker.pkg.dev -q
               '''
             }
           }
@@ -139,13 +127,13 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
+                set -e
                 SHORT_COMMIT=$(echo "$GIT_COMMIT" | cut -c1-7)
-                IMAGE_TAG=git-${SHORT_COMMIT}
+                TAG=git-${SHORT_COMMIT}
 
-                IMAGE_URI=${GCR_HOST}/${GCP_PROJECT}/${GCR_REPO}/${IMAGE_NAME}:${IMAGE_TAG}
-
-                docker tag ${IMAGE_NAME}:latest ${IMAGE_URI}
-                docker push ${IMAGE_URI}
+                IMAGE=${GAR_HOST}/${GCP_PROJECT}/${GAR_REPO}/stream-app:${TAG}
+                docker tag stream-app:latest $IMAGE
+                docker push $IMAGE
               '''
             }
           }
@@ -154,25 +142,21 @@ pipeline {
     }
 
     /* =====================================================
-     * Ingestion Processing
+     * INGESTION PROCESSING
      * ===================================================== */
     stage('Ingestion: Build & Deploy') {
       when {
         changeset "dockerfiles/ingestion/**"
       }
-
-      environment {
-        IMAGE_NAME = "ingestion-app"
-      }
-
       stages {
 
         stage('Build Ingestion Image') {
           steps {
             sh '''
+              set -e
               docker build \
                 -f dockerfiles/ingestion/Dockerfile \
-                -t ${IMAGE_NAME}:latest .
+                -t ingestion-app:latest .
             '''
           }
         }
@@ -184,14 +168,12 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
+                set -e
                 export PATH="/usr/lib/google-cloud-sdk/bin:$PATH"
-
-                which gcloud
-                gcloud --version
 
                 gcloud auth activate-service-account --key-file="$GCP_KEY"
                 gcloud config set project "$GCP_PROJECT"
-                gcloud auth configure-docker ${GCR_HOST} -q
+                gcloud auth configure-docker asia-southeast1-docker.pkg.dev -q
               '''
             }
           }
@@ -203,9 +185,10 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
-                IMAGE_URI=${GCR_HOST}/${GCP_PROJECT}/${GCR_REPO}/${IMAGE_NAME}:latest
-                docker tag ${IMAGE_NAME}:latest ${IMAGE_URI}
-                docker push ${IMAGE_URI}
+                set -e
+                IMAGE=${GAR_HOST}/${GCP_PROJECT}/${GAR_REPO}/ingestion-app:latest
+                docker tag ingestion-app:latest $IMAGE
+                docker push $IMAGE
               '''
             }
           }
@@ -214,7 +197,7 @@ pipeline {
     }
 
     /* =====================================================
-     * No Docker Changes
+     * NO DOCKER CHANGES
      * ===================================================== */
     stage('No Docker Changes Detected') {
       when {
@@ -225,20 +208,20 @@ pipeline {
         }
       }
       steps {
-        echo "No dockerfile changes detected — skip build & push."
+        echo "No dockerfiles changed – skip build & push."
       }
     }
   }
 
   post {
-    always {
-      echo "Pipeline finished for commit ${env.GIT_COMMIT}"
-    }
     success {
-      echo "✅ Build & push to Artifact Registry succeeded"
+      echo "✅ ALL IMAGES BUILT & PUSHED SUCCESSFULLY"
     }
     failure {
-      echo "❌ Build or push failed"
+      echo "❌ BUILD OR PUSH FAILED"
+    }
+    always {
+      echo "Pipeline finished for commit ${env.GIT_COMMIT}"
     }
   }
 }
