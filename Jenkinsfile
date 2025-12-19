@@ -2,9 +2,8 @@ pipeline {
   agent any
 
   environment {
-    GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-artifact-key')
-    GOOGLE_CLOUD_PROJECT           = credentials('gcp-project-id')
-    GCR_REPO                       = "asia-southeast1-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/docker-images"
+    GCR_REGION = "asia-southeast1"
+    GCR_HOST   = "asia-southeast1-docker.pkg.dev"
   }
 
   stages {
@@ -40,11 +39,16 @@ pipeline {
 
         stage('Auth GCP & Docker (Batch)') {
           steps {
-            withCredentials([file(credentialsId: 'gcp-artifact-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+            withCredentials([
+              file(credentialsId: 'gcp-artifact-key', variable: 'GCP_KEY'),
+              string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
+            ]) {
               sh '''
-                gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-                gcloud config set project "$GOOGLE_CLOUD_PROJECT"
-                gcloud auth configure-docker asia-southeast1-docker.pkg.dev
+                /usr/bin/gcloud auth activate-service-account --key-file="$GCP_KEY"
+                /usr/bin/gcloud config set project "$GCP_PROJECT"
+
+                ACCESS_TOKEN=$(/usr/bin/gcloud auth print-access-token)
+                echo "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin ${GCR_HOST}
               '''
             }
           }
@@ -52,17 +56,23 @@ pipeline {
 
         stage('Tag & Push Batch Image') {
           steps {
-            sh '''
-              docker tag batch-app:latest ${GCR_REPO}/batch-app:latest
-              docker push ${GCR_REPO}/batch-app:latest
-            '''
+            withCredentials([
+              string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
+            ]) {
+              sh '''
+                GCR_REPO="${GCR_HOST}/${GCP_PROJECT}/docker-images"
+
+                docker tag batch-app:latest ${GCR_REPO}/batch-app:latest
+                docker push ${GCR_REPO}/batch-app:latest
+              '''
+            }
           }
         }
       }
     }
 
     /* =====================================================
-     * Streaming Processing (TAG = GIT COMMIT)
+     * Streaming Processing
      * ===================================================== */
     stage('Streaming: Build & Deploy') {
       when {
@@ -78,11 +88,16 @@ pipeline {
 
         stage('Auth GCP & Docker (Streaming)') {
           steps {
-            withCredentials([file(credentialsId: 'gcp-artifact-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+            withCredentials([
+              file(credentialsId: 'gcp-artifact-key', variable: 'GCP_KEY'),
+              string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
+            ]) {
               sh '''
-                gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-                gcloud config set project "$GOOGLE_CLOUD_PROJECT"
-                gcloud auth configure-docker asia-southeast1-docker.pkg.dev
+                /usr/bin/gcloud auth activate-service-account --key-file="$GCP_KEY"
+                /usr/bin/gcloud config set project "$GCP_PROJECT"
+
+                ACCESS_TOKEN=$(/usr/bin/gcloud auth print-access-token)
+                echo "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin ${GCR_HOST}
               '''
             }
           }
@@ -90,15 +105,21 @@ pipeline {
 
         stage('Tag & Push Streaming Image (git commit)') {
           steps {
-            sh '''
-              SHORT_COMMIT=$(echo "$GIT_COMMIT" | cut -c1-7)
-              IMAGE_TAG=git-${SHORT_COMMIT}
+            withCredentials([
+              string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
+            ]) {
+              sh '''
+                SHORT_COMMIT=$(echo "$GIT_COMMIT" | cut -c1-7)
+                IMAGE_TAG="git-${SHORT_COMMIT}"
 
-              echo "🔖 Streaming image tag: ${IMAGE_TAG}"
+                GCR_REPO="${GCR_HOST}/${GCP_PROJECT}/docker-images"
 
-              docker tag stream-app:latest ${GCR_REPO}/stream-app:${IMAGE_TAG}
-              docker push ${GCR_REPO}/stream-app:${IMAGE_TAG}
-            '''
+                echo "🔖 Streaming image tag: ${IMAGE_TAG}"
+
+                docker tag stream-app:latest ${GCR_REPO}/stream-app:${IMAGE_TAG}
+                docker push ${GCR_REPO}/stream-app:${IMAGE_TAG}
+              '''
+            }
           }
         }
       }
@@ -121,11 +142,16 @@ pipeline {
 
         stage('Auth GCP & Docker (Ingestion)') {
           steps {
-            withCredentials([file(credentialsId: 'gcp-artifact-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+            withCredentials([
+              file(credentialsId: 'gcp-artifact-key', variable: 'GCP_KEY'),
+              string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
+            ]) {
               sh '''
-                gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS"
-                gcloud config set project "$GOOGLE_CLOUD_PROJECT"
-                gcloud auth configure-docker asia-southeast1-docker.pkg.dev
+                /usr/bin/gcloud auth activate-service-account --key-file="$GCP_KEY"
+                /usr/bin/gcloud config set project "$GCP_PROJECT"
+
+                ACCESS_TOKEN=$(/usr/bin/gcloud auth print-access-token)
+                echo "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin ${GCR_HOST}
               '''
             }
           }
@@ -133,10 +159,16 @@ pipeline {
 
         stage('Tag & Push Ingestion Image') {
           steps {
-            sh '''
-              docker tag ingestion-app:latest ${GCR_REPO}/ingestion-app:latest
-              docker push ${GCR_REPO}/ingestion-app:latest
-            '''
+            withCredentials([
+              string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
+            ]) {
+              sh '''
+                GCR_REPO="${GCR_HOST}/${GCP_PROJECT}/docker-images"
+
+                docker tag ingestion-app:latest ${GCR_REPO}/ingestion-app:latest
+                docker push ${GCR_REPO}/ingestion-app:latest
+              '''
+            }
           }
         }
       }
