@@ -4,7 +4,7 @@ pipeline {
   environment {
     GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-artifact-key')
     GOOGLE_CLOUD_PROJECT           = credentials('gcp-project-id')
-    GCR_REPO                       = "asia-southeast1-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/bnb-c2c-images"
+    GCR_REPO                       = "asia-southeast1-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/docker-images"
   }
 
   stages {
