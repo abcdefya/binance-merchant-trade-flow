@@ -1,4 +1,4 @@
-# data_ingestion.py ......
+# data_ingestion.py 
 import os
 import logging
 from datetime import datetime, timedelta, timezone
