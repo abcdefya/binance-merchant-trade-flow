@@ -33,7 +33,11 @@ pipeline {
 
         stage('Build Batch Docker Image') {
           steps {
-            sh 'docker build -f dockerfiles/batch-processing/Dockerfile -t batch-app:latest .'
+            sh '''
+              docker build \
+                -f dockerfiles/batch-processing/Dockerfile \
+                -t batch-app:latest .
+            '''
           }
         }
 
@@ -44,11 +48,17 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
-                /usr/bin/gcloud auth activate-service-account --key-file="$GCP_KEY"
-                /usr/bin/gcloud config set project "$GCP_PROJECT"
+                #!/bin/bash -l
+                set -e
 
-                ACCESS_TOKEN=$(/usr/bin/gcloud auth print-access-token)
-                echo "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin ${GCR_HOST}
+                gcloud auth activate-service-account --key-file="$GCP_KEY"
+                gcloud config set project "$GCP_PROJECT"
+
+                ACCESS_TOKEN=$(gcloud auth print-access-token)
+                echo "$ACCESS_TOKEN" | docker login \
+                  -u oauth2accesstoken \
+                  --password-stdin \
+                  asia-southeast1-docker.pkg.dev
               '''
             }
           }
@@ -60,10 +70,11 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
-                GCR_REPO="${GCR_HOST}/${GCP_PROJECT}/docker-images"
+                docker tag batch-app:latest \
+                  asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/docker-images/batch-app:latest
 
-                docker tag batch-app:latest ${GCR_REPO}/batch-app:latest
-                docker push ${GCR_REPO}/batch-app:latest
+                docker push \
+                  asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/docker-images/batch-app:latest
               '''
             }
           }
@@ -72,7 +83,7 @@ pipeline {
     }
 
     /* =====================================================
-     * Streaming Processing
+     * Streaming Processing (TAG = GIT COMMIT)
      * ===================================================== */
     stage('Streaming: Build & Deploy') {
       when {
@@ -82,7 +93,11 @@ pipeline {
 
         stage('Build Streaming Docker Image') {
           steps {
-            sh 'docker build -f dockerfiles/streaming-processing/Dockerfile -t stream-app:latest .'
+            sh '''
+              docker build \
+                -f dockerfiles/streaming-processing/Dockerfile \
+                -t stream-app:latest .
+            '''
           }
         }
 
@@ -93,11 +108,17 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
-                /usr/bin/gcloud auth activate-service-account --key-file="$GCP_KEY"
-                /usr/bin/gcloud config set project "$GCP_PROJECT"
+                #!/bin/bash -l
+                set -e
 
-                ACCESS_TOKEN=$(/usr/bin/gcloud auth print-access-token)
-                echo "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin ${GCR_HOST}
+                gcloud auth activate-service-account --key-file="$GCP_KEY"
+                gcloud config set project "$GCP_PROJECT"
+
+                ACCESS_TOKEN=$(gcloud auth print-access-token)
+                echo "$ACCESS_TOKEN" | docker login \
+                  -u oauth2accesstoken \
+                  --password-stdin \
+                  asia-southeast1-docker.pkg.dev
               '''
             }
           }
@@ -110,14 +131,13 @@ pipeline {
             ]) {
               sh '''
                 SHORT_COMMIT=$(echo "$GIT_COMMIT" | cut -c1-7)
-                IMAGE_TAG="git-${SHORT_COMMIT}"
+                IMAGE_TAG=git-${SHORT_COMMIT}
 
-                GCR_REPO="${GCR_HOST}/${GCP_PROJECT}/docker-images"
+                docker tag stream-app:latest \
+                  asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/docker-images/stream-app:${IMAGE_TAG}
 
-                echo "🔖 Streaming image tag: ${IMAGE_TAG}"
-
-                docker tag stream-app:latest ${GCR_REPO}/stream-app:${IMAGE_TAG}
-                docker push ${GCR_REPO}/stream-app:${IMAGE_TAG}
+                docker push \
+                  asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/docker-images/stream-app:${IMAGE_TAG}
               '''
             }
           }
@@ -136,7 +156,11 @@ pipeline {
 
         stage('Build Ingestion Docker Image') {
           steps {
-            sh 'docker build -f dockerfiles/ingestion/Dockerfile -t ingestion-app:latest .'
+            sh '''
+              docker build \
+                -f dockerfiles/ingestion/Dockerfile \
+                -t ingestion-app:latest .
+            '''
           }
         }
 
@@ -147,11 +171,17 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
-                /usr/bin/gcloud auth activate-service-account --key-file="$GCP_KEY"
-                /usr/bin/gcloud config set project "$GCP_PROJECT"
+                #!/bin/bash -l
+                set -e
 
-                ACCESS_TOKEN=$(/usr/bin/gcloud auth print-access-token)
-                echo "$ACCESS_TOKEN" | docker login -u oauth2accesstoken --password-stdin ${GCR_HOST}
+                gcloud auth activate-service-account --key-file="$GCP_KEY"
+                gcloud config set project "$GCP_PROJECT"
+
+                ACCESS_TOKEN=$(gcloud auth print-access-token)
+                echo "$ACCESS_TOKEN" | docker login \
+                  -u oauth2accesstoken \
+                  --password-stdin \
+                  asia-southeast1-docker.pkg.dev
               '''
             }
           }
@@ -163,10 +193,11 @@ pipeline {
               string(credentialsId: 'gcp-project-id', variable: 'GCP_PROJECT')
             ]) {
               sh '''
-                GCR_REPO="${GCR_HOST}/${GCP_PROJECT}/docker-images"
+                docker tag ingestion-app:latest \
+                  asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/docker-images/ingestion-app:latest
 
-                docker tag ingestion-app:latest ${GCR_REPO}/ingestion-app:latest
-                docker push ${GCR_REPO}/ingestion-app:latest
+                docker push \
+                  asia-southeast1-docker.pkg.dev/${GCP_PROJECT}/docker-images/ingestion-app:latest
               '''
             }
           }
