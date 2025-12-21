@@ -9,7 +9,7 @@ from kubernetes.client import models as k8s
 # NAMESPACE
 # =========================================================
 NAMESPACE = "batch-processing"
-
+IMAGE = "asia-southeast1-docker.pkg.dev/binance-c2c-deployment/docker-images/batch-app:latest"
 # =========================================================
 # BINANCE API SECRETS
 # =========================================================
@@ -66,9 +66,7 @@ with DAG(
     tags=["c2c", "ingestion", "bronze", "test"],
 ) as dag:
 
-    # =====================================================
     # TASK 1: INGESTION → LANDING
-    # =====================================================
     ingestion_task = KubernetesPodOperator(
         task_id="c2c_ingestion",
         name="c2c-ingestion",
@@ -79,13 +77,8 @@ with DAG(
 
         env_vars={
             "FETCH_MODE": "latest_month",
-
-            # 🔑 enable landing write
             "ENABLE_MINIO_WRITE": "true",
-
-            # ❌ disable DB
             "ENABLE_DB_UPSERT": "false",
-
             # MinIO landing config
             "MINIO_ENDPOINT": "http://minio.storage.svc.cluster.local:80",
             "MINIO_BUCKET": "bronze",
@@ -106,9 +99,7 @@ with DAG(
         kubernetes_conn_id=None,
     )
 
-    # =====================================================
-    # TASK 2: BRONZE JOB (LANDING → DELTA)
-    # =====================================================
+    # Task 2: Bronze jobs
     bronze_task = KubernetesPodOperator(
         task_id="c2c_bronze_job",
         name="c2c-bronze-job",
@@ -132,7 +123,54 @@ with DAG(
         kubernetes_conn_id=None,
     )
 
-    # =====================================================
-    # DEPENDENCY
-    # =====================================================
-    ingestion_task >> bronze_task
+    # Task 3: Silver jobs
+    silver_task = KubernetesPodOperator(
+        task_id='silver_transformation',
+        name='silver-transformation',
+        namespace=NAMESPACE,
+        image=IMAGE,
+        cmds=["python3", "etl_jobs/silver_job.py"],
+        # env_vars={"DATE_FILTER": "yesterday"},  # Uncomment for daily incremental mode
+        image_pull_policy='Always',
+        is_delete_operator_pod=True,
+        get_logs=True,
+        in_cluster=True,
+        kubernetes_conn_id=None,
+    )
+
+    # Task 4: Gold jobs
+    gold_task_v1 = KubernetesPodOperator(
+        task_id='gold_transformation_v1',
+        name='gold-transformation-v1',
+        namespace=NAMESPACE,
+        image=IMAGE,
+        cmds=["python3", "etl_jobs/gold_job_v1.py"],
+        env_vars={
+            "GCS_BUCKET": "gold-c2c-bucket",
+            "GCS_PREFIX": "gold_v1_backup",  # Different prefix to separate V0 and V1
+            "GCS_WORKERS": "16",
+            "GCS_USE_THREADS": "true",
+            "GOOGLE_APPLICATION_CREDENTIALS": "/secrets/google-auth.json"
+        },
+        # Mount GCS credentials from Kubernetes Secret
+        volumes=[
+            k8s.V1Volume(
+                name='gcs-credentials',
+                secret=k8s.V1SecretVolumeSource(secret_name='gcs-credentials')
+            )
+        ],
+        volume_mounts=[
+            k8s.V1VolumeMount(
+                name='gcs-credentials',
+                mount_path='/secrets',
+                read_only=True
+            )
+        ],
+        image_pull_policy='Always',
+        is_delete_operator_pod=True,
+        get_logs=True,
+        in_cluster=True,
+        kubernetes_conn_id=None,
+    )
+
+    ingestion_task >> bronze_task >> silver_task >> gold_task_v1
