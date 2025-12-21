@@ -31,7 +31,9 @@ def get_spark(app_name: str):
     secret_key = cfg["s3"]["secret_key"]
     # bucket = cfg["s3"]["bucket"] # Removed
     
-    metastore_host = cfg["metastore"]["host"]
+    # Get metastore host, default to empty string (embedded Derby)
+    metastore_host = cfg.get("metastore", {}).get("host", "")
+    
     builder = (
         SparkSession.builder.master("local[*]")
         .appName(app_name)
@@ -44,7 +46,14 @@ def get_spark(app_name: str):
         )
         # Hive Metastore config
         .config("spark.sql.catalogImplementation", "hive")
-        .config("spark.hadoop.hive.metastore.uris", metastore_host)
+    )
+    
+    # Only set metastore URIs if host is provided (otherwise uses embedded Derby)
+    if metastore_host:
+        builder = builder.config("spark.hadoop.hive.metastore.uris", metastore_host)
+    
+    builder = (
+        builder
         # Default warehouse to bronze bucket for now, or could be a separate system bucket
         .config("spark.sql.warehouse.dir", "s3a://bronze/warehouse")
         .config(
