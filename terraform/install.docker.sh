@@ -1,27 +1,29 @@
 #!/bin/bash
 
-# Define the log file path
 LOG_FILE="/var/log/install_docker_jenkins.log"
-
-# Redirect all stdout and stderr to the log file
-# The 'tee' command also prints to stdout/stderr, which can be captured by Cloud Logging
 exec > >(tee -a ${LOG_FILE}) 2>&1
-echo "--- Starting Docker and Jenkins Installation Script ---"
+
+echo "--- Starting Docker + Jenkins + gcloud installation ---"
 date
 
-# Update the apt package index, and install the latest version of Docker Engine and containerd, or go to the next step to install a specific version
-echo "Running: sudo apt update"
-sudo apt-get update
-echo "sudo apt update finished."
+# ----------------------------------------------------
+# 1. Install Docker on HOST
+# ----------------------------------------------------
+echo "[1/6] Installing Docker..."
+apt-get update
+apt-get install -y docker.io
+systemctl enable docker
+systemctl start docker
+echo "Docker installed."
 
-# Install Docker Engine, containerd, and Docker Compose
-echo "Installing Docker Engine, containerd, and Docker Compose..."
-sudo apt-get install -y docker.io
-echo "Docker CE installed."
+# ----------------------------------------------------
+# 2. Start Jenkins container
+# ----------------------------------------------------
+echo "[2/6] Starting Jenkins container..."
 
-# Check if Jenkins container is already running or exists
-echo "Jenkins container starting now..."
-sudo docker run -d \
+docker rm -f jenkins 2>/dev/null || true
+
+docker run -d \
   --name jenkins \
   --restart unless-stopped \
   --privileged \
@@ -30,9 +32,43 @@ sudo docker run -d \
   -p 50000:50000 \
   -v jenkins_home:/var/jenkins_home \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  -v /usr/bin/docker:/usr/bin/docker \
   jenkins/jenkins:lts
-echo "Jenkins container started."
-echo "--- Script Finished ---"
-date
 
+echo "Jenkins container started."
+
+# ----------------------------------------------------
+# 3. Wait Jenkins container to be ready
+# ----------------------------------------------------
+echo "[3/6] Waiting for Jenkins container..."
+sleep 15
+
+# ----------------------------------------------------
+# 4. Install gcloud INSIDE Jenkins container
+# ----------------------------------------------------
+echo "[4/6] Installing gcloud CLI inside Jenkins container..."
+
+docker exec jenkins bash -c "
+apt-get update &&
+apt-get install -y ca-certificates curl gnupg apt-transport-https &&
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+ | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg &&
+echo 'deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main' \
+ > /etc/apt/sources.list.d/google-cloud-sdk.list &&
+apt-get update &&
+apt-get install -y google-cloud-cli kubectl docker.io
+"
+
+echo "gcloud installed inside Jenkins container."
+
+# ----------------------------------------------------
+# 5. Verify gcloud
+# ----------------------------------------------------
+echo "[5/6] Verifying gcloud installation..."
+
+docker exec jenkins bash -c "gcloud version"
+
+# ----------------------------------------------------
+# 6. Done
+# ----------------------------------------------------
+echo "[6/6] Installation finished successfully."
+date
