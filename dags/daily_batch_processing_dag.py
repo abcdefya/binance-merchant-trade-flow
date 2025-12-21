@@ -57,7 +57,7 @@ default_args = {
 # DAG
 # =========================================================
 with DAG(
-    dag_id="daily batch processing",
+    dag_id="daily_batch_processing",
     default_args=default_args,
     description="TEST DAG: Binance C2C ingestion → bronze landing → bronze delta",
     start_date=datetime(2024, 1, 1),
