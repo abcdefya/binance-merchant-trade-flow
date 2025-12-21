@@ -24,6 +24,16 @@ minio_secret_key = Secret(
     key="secret_key",
 )
 
+api_key_secret = Secret('env', 
+'BINANCE_API_KEY', 
+'airflow-producer-secret', 
+'API_KEY')
+api_secret_secret = Secret('env', 
+'BINANCE_API_SECRET', 
+'airflow-producer-secret', 
+'API_SECRET')
+
+
 default_args = {
     "owner": "airflow",
     "retries": 1,
