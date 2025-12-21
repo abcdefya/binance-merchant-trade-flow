@@ -109,7 +109,10 @@ def main():
     # =====================================================
     # 4. CLEANUP LANDING 
     # =====================================================
+    # Get the S3A filesystem by passing the URI
+    uri = spark._jvm.java.net.URI(LANDING_PATH)
     fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(
+        uri,
         spark._jsc.hadoopConfiguration()
     )
     landing_path = spark._jvm.org.apache.hadoop.fs.Path(LANDING_PATH)
