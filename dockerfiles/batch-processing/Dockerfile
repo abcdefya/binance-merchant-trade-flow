@@ -42,9 +42,7 @@ ENV PATH="/root/.local/bin:$PATH"
 RUN uv pip install --system -r requirements.txt && \
     uv pip install --system delta-spark==2.4.0 pyyaml minio google-cloud-storage
 
-# Copy necessary scripts from root dockerfiles
-COPY dockerfiles/utils.py /app/utils.py
-COPY dockerfiles/data_ingestion.py /app/data_ingestion.py
+
 
 # Copy common modules and configs
 COPY dockerfiles/batch-processing/common /app/common
