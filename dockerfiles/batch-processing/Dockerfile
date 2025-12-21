@@ -32,7 +32,7 @@ RUN mkdir -p /opt/spark/jars && \
 COPY dockerfiles/batch-processing/jars/*.jar /opt/spark/jars/
 
 # Copy requirements file
-COPY dockerfiles/requirements.txt .
+COPY dockerfiles/batch-processing/requirements.txt .
 
 # Install uv (fast Python package installer)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
