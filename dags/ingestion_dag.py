@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
-
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.cncf.kubernetes.secret import Secret
-
+from kubernetes.client import models as k8s
 # Namespace Airflow đang chạy
 NAMESPACE = "batch-processing"
 
@@ -84,6 +83,8 @@ with DAG(
         secrets=[
             minio_access_key,
             minio_secret_key,
+            api_key_secret,
+            api_secret_secret
         ],
 
         image_pull_policy="Always",
