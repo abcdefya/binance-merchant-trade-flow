@@ -46,7 +46,7 @@ with DAG(
         namespace=NAMESPACE,
 
         # 👉 ingestion image của bạn
-        image="asia-southeast1-docker.pkg.dev/binance-test-479915/bnb-c2c-images/ingestion-app:latest",
+        image="asia-southeast1-docker.pkg.dev/binance-c2c-deployment/docker-images/ingestion-app:latest",
 
         cmds=["python3", "c2c_ingestion.py"],
 
