@@ -57,7 +57,7 @@ default_args = {
 # DAG
 # =========================================================
 with DAG(
-    dag_id="c2c_ingestion_bronze_test",
+    dag_id="daily batch processing",
     default_args=default_args,
     description="TEST DAG: Binance C2C ingestion → bronze landing → bronze delta",
     start_date=datetime(2024, 1, 1),
@@ -67,7 +67,7 @@ with DAG(
 ) as dag:
 
     # TASK 1: INGESTION → LANDING
-    ingestion_task = KubernetesPodOperator(
+    data_ingestion = KubernetesPodOperator(
         task_id="c2c_ingestion",
         name="c2c-ingestion",
         namespace=NAMESPACE,
@@ -100,7 +100,7 @@ with DAG(
     )
 
     # Task 2: Bronze jobs
-    bronze_task = KubernetesPodOperator(
+    bronze_jobs = KubernetesPodOperator(
         task_id="c2c_bronze_job",
         name="c2c-bronze-job",
         namespace=NAMESPACE,
@@ -124,7 +124,7 @@ with DAG(
     )
 
     # Task 3: Silver jobs
-    silver_task = KubernetesPodOperator(
+    silver_jobs = KubernetesPodOperator(
         task_id='silver_transformation',
         name='silver-transformation',
         namespace=NAMESPACE,
@@ -139,7 +139,7 @@ with DAG(
     )
 
     # Task 4: Gold jobs
-    gold_task_v1 = KubernetesPodOperator(
+    gold_jobs = KubernetesPodOperator(
         task_id='gold_transformation_v1',
         name='gold-transformation-v1',
         namespace=NAMESPACE,
@@ -173,4 +173,4 @@ with DAG(
         kubernetes_conn_id=None,
     )
 
-    ingestion_task >> bronze_task >> silver_task >> gold_task_v1
+    data_ingestion >> bronze_jobs >> silver_jobs >> gold_jobs
