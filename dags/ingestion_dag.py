@@ -150,7 +150,7 @@ with DAG(
             "GCS_PREFIX": "gold_v1_backup",  # Different prefix to separate V0 and V1
             "GCS_WORKERS": "16",
             "GCS_USE_THREADS": "true",
-            "GOOGLE_APPLICATION_CREDENTIALS": "/secrets/google-auth.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": "/secrets/gcs-auth.json"
         },
         # Mount GCS credentials from Kubernetes Secret
         volumes=[
