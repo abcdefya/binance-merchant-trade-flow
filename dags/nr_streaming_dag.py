@@ -58,7 +58,7 @@ default_args = {
 # ============================================================
 
 with DAG(
-    dag_id='c2c_ingestion_latest_month_upsert',
+    dag_id='streaming_ingestion',
     default_args=default_args,
     description='C2C ingestion with DB UPSERT (CDC test)',
     schedule='@hourly',
