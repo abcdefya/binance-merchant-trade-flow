@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
-# c2c_ingestion.py ....///
+# c2c_ingestion.py
 """
 C2C Ingestion Job (Shared image for batch & streaming)
 
 Features:
-- fetch_by_mode (unchanged)
+- fetch_by_mode (UNCHANGED)
 - DB UPSERT (optional, controlled by ENV)
 - sleep(10s) on DB change (CDC test)
+- OPTIONAL: write Parquet to MinIO landing (bronze/_landing)
 
 ENV:
-- ENABLE_DB_UPSERT=true|false   (default=false).......
+- FETCH_MODE
+- ENABLE_DB_UPSERT=true|false
+- ENABLE_MINIO_WRITE=true|false
+
+MinIO ENV (if ENABLE_MINIO_WRITE=true):
+- MINIO_ENDPOINT
+- MINIO_ACCESS_KEY
+- MINIO_SECRET_KEY
+- MINIO_BUCKET
+- MINIO_PREFIX
 """
 
 import os
@@ -17,15 +27,20 @@ import time
 import logging
 import psycopg2
 from typing import List
+from datetime import datetime
 
 from binance_sdk_c2c.c2c import ConfigurationRestAPI, C2C_REST_API_PROD_URL
 from binance_sdk_c2c.rest_api.models import GetC2CTradeHistoryResponseDataInner
 from data_ingestion import C2CExtended
+from utils import write_parquet_to_minio   # 🔥 ADD
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("c2c-ingestion")
 
 
+# =========================================================
+# FETCH LOGIC (UNCHANGED)
+# =========================================================
 def fetch_by_mode(
     client: C2CExtended,
     fetch_mode: str
@@ -56,7 +71,7 @@ def fetch_by_mode(
 
 
 # =========================================================
-# DB UPSERT
+# DB UPSERT (UNCHANGED)
 # =========================================================
 UPSERT_SQL = """
 INSERT INTO c2c.trades (
@@ -134,9 +149,11 @@ def main():
     fetch_mode = os.getenv("FETCH_MODE", "latest_month")
 
     enable_db = os.getenv("ENABLE_DB_UPSERT", "false").lower() == "true"
+    enable_minio = os.getenv("ENABLE_MINIO_WRITE", "false").lower() == "true"
 
     logger.info(f"FETCH_MODE={fetch_mode}")
     logger.info(f"ENABLE_DB_UPSERT={enable_db}")
+    logger.info(f"ENABLE_MINIO_WRITE={enable_minio}")
 
     if not api_key or not api_secret:
         raise RuntimeError("BINANCE_API_KEY / BINANCE_API_SECRET not set")
@@ -162,6 +179,36 @@ def main():
         return
 
     # =========================
+    # WRITE MINIO LANDING (NEW)
+    # =========================
+    if enable_minio:
+        batch_id = datetime.utcnow().strftime("%Y-%m-%dT%H-%M-%S")
+
+        records = []
+        for t in trades:
+            records.append({
+                "order_number": t.order_number,
+                "adv_no": t.adv_no,
+                "trade_type": t.trade_type,
+                "asset": t.asset,
+                "fiat": t.fiat,
+                "fiat_symbol": t.fiat_symbol,
+                "amount": str(t.amount),
+                "total_price": str(t.total_price),
+                "unit_price": str(t.unit_price),
+                "order_status": t.order_status,
+                "create_time": getattr(t, "create_time", None),
+                "commission": str(t.commission),
+                "counter_part_nick_name": t.counter_part_nick_name,
+                "advertisement_role": t.advertisement_role,
+            })
+
+        logger.info(
+            f"🟦 Writing {len(records)} records to MinIO landing | batch_id={batch_id}"
+        )
+        write_parquet_to_minio(records, batch_id)
+
+    # =========================
     # BATCH MODE (NO DB)
     # =========================
     if not enable_db:
@@ -169,7 +216,7 @@ def main():
         return
 
     # =========================
-    # DB MODE
+    # DB MODE (UNCHANGED)
     # =========================
     db_host = os.getenv("DB_HOST", "airflow-postgresql.orchestration.svc.cluster.local")
     db_port = int(os.getenv("DB_PORT", "5432"))

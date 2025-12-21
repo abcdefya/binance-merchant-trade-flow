@@ -9,7 +9,11 @@ from binance_sdk_c2c.rest_api.models import GetC2CTradeHistoryResponseDataInner
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from time import sleep
-
+import io
+import boto3
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 T = TypeVar("T")
 
 # Configure logging
@@ -299,3 +303,46 @@ def ensure_directory(path: str) -> None:
         os.makedirs(path, exist_ok=True)
     except Exception as e:
         logging.error(f"Cannot create directory {path}: {e}")
+
+
+
+
+def write_parquet_to_minio(records: list, batch_id: str):
+    """
+    OPTIONAL helper:
+    Write raw ingestion records to MinIO as Parquet.
+    Does NOT affect existing ingestion logic.
+    """
+    endpoint = os.getenv("MINIO_ENDPOINT")
+    access_key = os.getenv("MINIO_ACCESS_KEY")
+    secret_key = os.getenv("MINIO_SECRET_KEY")
+    bucket = os.getenv("MINIO_BUCKET", "bronze")
+    prefix = os.getenv("MINIO_PREFIX", "c2c_trades/_landing")
+
+    if not endpoint or not access_key or not secret_key:
+        raise RuntimeError("MinIO config missing")
+
+    if not records:
+        return
+
+    df = pd.DataFrame(records)
+    table = pa.Table.from_pandas(df)
+
+    buf = io.BytesIO()
+    pq.write_table(table, buf)
+    buf.seek(0)
+
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+    )
+
+    key = f"{prefix}/batch_id={batch_id}/data.parquet"
+
+    s3.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=buf.getvalue(),
+    )
