@@ -5,7 +5,7 @@ from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperato
 from airflow.providers.cncf.kubernetes.secret import Secret
 
 # Namespace Airflow đang chạy
-NAMESPACE = "orchestration"
+NAMESPACE = "batch-processing"
 
 # -------------------------
 # MinIO secrets
