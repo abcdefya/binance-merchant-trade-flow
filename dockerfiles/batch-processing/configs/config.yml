@@ -1,10 +1,5 @@
 # jobs/configs/config.yml
-postgres:
-  url: "jdbc:postgresql://postgresql.storage.svc.cluster.local:5432/crm_db"
-  #url: "jdbc:postgresql://localhost:5432/crm_db"
-  user: "pgadmin"
-  password: "pw123"
-  table: "product_reviews"
+
 
 s3:
   # Using the ClusterIP service 'minio' on port 80 which likely maps to 9000 inside
@@ -15,21 +10,19 @@ s3:
   secret_key: minio123
   # Bucket is now dynamic (bronze/silver/gold) based on usage
 
-predict:
-  api_url: "http://tsc.model-serving.svc.cluster.local:30000/predict_batch"
-  batch_size: 100
+
 metastore:
   host: "thrift://hive-metastore.storage.svc.cluster.local:9083"
   #host: "thrift://localhost:9083"
 
 gcs:
   credential_path: "/secrets/google-auth.json"  # Mounted from K8s secret
-  default_bucket: "binance-gold-bucket"   # Update with your bucket name
+  default_bucket: "gold-c2c-bucket"   # Update with your bucket name
   default_location: "asia-southeast1"
 
 gold_backup:
   enabled: true
-  backup_bucket: "binance-gold-bucket"    # Update with your bucket name
+  backup_bucket: "gold-c2c-bucket"    # Update with your bucket name
   backup_prefix: "gold_backup"
   workers: 16
   use_threads: false  # false = process mode, true = thread mode

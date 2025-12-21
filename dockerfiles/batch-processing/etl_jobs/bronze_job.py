@@ -23,7 +23,7 @@ logger = logging.getLogger("bronze-job")
 # PATH CONFIG 
 # =========================================================
 LANDING_PATH = "s3a://bronze/c2c_trades/_landing"
-BRONZE_PATH = "s3a://bronze/c2c_trades/bronze_delta"
+BRONZE_PATH = "s3a://bronze/c2c_trades/"
 APP_NAME = "C2CBronzeJob"
 
 
