@@ -9,7 +9,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: minio.ta.vn 
+  - host: minio.ta.vn
     http:
       paths:
       - path: / 
