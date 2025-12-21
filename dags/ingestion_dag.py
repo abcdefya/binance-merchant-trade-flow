@@ -8,7 +8,7 @@ from kubernetes.client import models as k8s
 # =========================================================
 # NAMESPACE
 # =========================================================
-NAMESPACE = "orchestration"
+NAMESPACE = "batch-processing"
 
 # =========================================================
 # BINANCE API SECRETS
@@ -74,7 +74,7 @@ with DAG(
         name="c2c-ingestion",
         namespace=NAMESPACE,
 
-        image="asia-southeast1-docker.pkg.dev/binance-test-479915/bnb-c2c-images/ingestion-app:latest",
+        image="asia-southeast1-docker.pkg.dev/binance-c2c-deployment/docker-images/ingestion-app:latest",
         cmds=["python3", "/app/c2c_ingestion.py"],
 
         env_vars={
@@ -114,7 +114,7 @@ with DAG(
         name="c2c-bronze-job",
         namespace=NAMESPACE,
 
-        image="asia-southeast1-docker.pkg.dev/binance-test-479915/bnb-c2c-images/batch-app:latest",
+        image="asia-southeast1-docker.pkg.dev/binance-c2c-deployment/docker-images/batch-app:latest",
         cmds=["python3", "etl_jobs/bronze_job.py"],
 
         env_vars={
