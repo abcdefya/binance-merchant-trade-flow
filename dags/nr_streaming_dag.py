@@ -87,7 +87,7 @@ with DAG(
             "ENABLE_DB_UPSERT": "true",
 
             # DB connection (NO secret hardcode)
-            "DB_HOST": "airflow-postgresql.orchestration.svc.cluster.local",
+            "DB_HOST": "airflow-postgresql.batch-processing.svc.cluster.local",
             "DB_PORT": "5432",
             "DB_NAME": "c2c_trade",
             "DB_USER": "postgres",
