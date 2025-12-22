@@ -141,9 +141,6 @@ def upsert_trade(cur, trade: GetC2CTradeHistoryResponseDataInner) -> bool:
 def main():
     logger.info("🚀 Starting C2C Ingestion Job")
 
-    # =========================
-    # ENV
-    # =========================
     api_key = os.getenv("BINANCE_API_KEY")
     api_secret = os.getenv("BINANCE_API_SECRET")
     fetch_mode = os.getenv("FETCH_MODE", "latest_month")
