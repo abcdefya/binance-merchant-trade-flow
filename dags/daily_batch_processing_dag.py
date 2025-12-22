@@ -140,7 +140,7 @@ with DAG(
 
     # Task 4: Gold jobs
     gold_jobs = KubernetesPodOperator(
-        task_id='gold_transformation_v1',
+        task_id='gold_transformation',
         name='gold-transformation-v1',
         namespace=NAMESPACE,
         image=IMAGE,
