@@ -1,26 +1,32 @@
+# ------------------------------------------------------------------------------
+# GLOBAL / IMAGES
+# ------------------------------------------------------------------------------
 airflowVersion: 2.9.3
 defaultAirflowTag: 2.9.3
 allowPodLaunching: true
-apiSecretKey: changeme-api-secret
 
+# ------------------------------------------------------------------------------
+# EXECUTOR
+# ------------------------------------------------------------------------------
+executor: KubernetesExecutor
+
+# ------------------------------------------------------------------------------
+# AIRFLOW CONFIGURATION (airflow.cfg)
+# ------------------------------------------------------------------------------
 config:
   api:
     base_url: http://airflow.ta.vn
-
   celery:
     broker_url: ""
     result_backend: ""
     worker_concurrency: 16
-
   core:
     executor: KubernetesExecutor
     load_examples: "False"
     colored_console_log: "False"
-
   kubernetes_environment_variables:
     AIRFLOW_CONN_gcs_default: google-cloud-platform://?key_path=/opt/airflow/secrets/key.json&project_id=binance-c2c-deployment&scope=https://www.googleapis.com/auth/cloud-platform
     GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/secrets/key.json
-
   logging:
     remote_logging: "True"
     remote_log_conn_id: gcs_default
@@ -28,14 +34,38 @@ config:
     colored_console_log: "False"
     gcs_use_service_account_json: "True"
     gcs_keyfile_json: /opt/airflow/secrets/key.json
-
   webserver:
     base_url: http://airflow.ta.vn
     enable_proxy_fix: "True"
     rbac: "True"
 
-executor: KubernetesExecutor
+# ------------------------------------------------------------------------------
+# SECRETS & ENVIRONMENT
+# ------------------------------------------------------------------------------
+webserverSecretKey: changeme-web-secret
+jwtSecret: changeme-jwt-secret
+apiSecretKey: changeme-api-secret
+fernetKey: null
 
+extraSecrets:
+  airflow-gcs-connection:
+    stringData: |
+      AIRFLOW_CONN_gcs_default: "google-cloud-platform://?key_path=/opt/airflow/secrets/key.json&project_id=binance-c2c-deployment&scope=https://www.googleapis.com/auth/cloud-platform"
+
+# Mounts applied to ALL components (Scheduler, Webserver, Worker, Triggerer)
+extraVolumes:
+  - name: google-cloud-key
+    secret:
+      secretName: gcs-logger-key
+
+extraVolumeMounts:
+  - name: google-cloud-key
+    mountPath: /opt/airflow/secrets
+    readOnly: true
+
+# ------------------------------------------------------------------------------
+# DAGS / GIT SYNC
+# ------------------------------------------------------------------------------
 dags:
   gitSync:
     enabled: true
@@ -47,30 +77,42 @@ dags:
   persistence:
     enabled: false
 
-extraSecrets:
-  airflow-gcs-connection:
-    stringData: |
-      AIRFLOW_CONN_gcs_default: "google-cloud-platform://?key_path=/opt/airflow/secrets/key.json&project_id=binance-c2c-deployment&scope=https://www.googleapis.com/auth/cloud-platform"
-
-extraVolumes:
-- name: google-cloud-key
-  secret:
-    secretName: gcs-logger-key
-
-extraVolumeMounts:
-- name: google-cloud-key
-  mountPath: /opt/airflow/secrets
-  readOnly: true
-
-postgresql:
+# ------------------------------------------------------------------------------
+# WEBSERVER (With Fix)
+# ------------------------------------------------------------------------------
+webserver:
   enabled: true
-  image:
-    repository: bitnamilegacy/postgresql
-    tag: latest
+  replicas: 1
+  
+  # FIX: Increased startup time to prevent "connection refused" on busy nodes
+  # Gives the pod 10 minutes (60 * 10s) to initialize.
+  startupProbe:
+    failureThreshold: 60
+    periodSeconds: 10
+    timeoutSeconds: 10
+  
+  livenessProbe:
+    initialDelaySeconds: 15
+    timeoutSeconds: 30
+    failureThreshold: 5
+    periodSeconds: 20
 
-redis:
-  enabled: false
+  env:
+    - name: GOOGLE_APPLICATION_CREDENTIALS
+      value: /opt/airflow/secrets/key.json
+  # Note: extraVolumes/Mounts are inherited from global, but can be explicit here if needed.
+  extraVolumes:
+    - name: google-cloud-key
+      secret:
+        secretName: gcs-logger-key
+  extraVolumeMounts:
+    - name: google-cloud-key
+      mountPath: /opt/airflow/secrets
+      readOnly: true
 
+# ------------------------------------------------------------------------------
+# SCHEDULER
+# ------------------------------------------------------------------------------
 scheduler:
   enabled: true
   replicas: 1
@@ -86,6 +128,9 @@ scheduler:
       mountPath: /opt/airflow/secrets
       readOnly: true
 
+# ------------------------------------------------------------------------------
+# TRIGGERER
+# ------------------------------------------------------------------------------
 triggerer:
   enabled: true
   replicas: 1
@@ -104,21 +149,9 @@ triggerer:
       mountPath: /opt/airflow/secrets
       readOnly: true
 
-webserver:
-  enabled: true
-  replicas: 1
-  env:
-    - name: GOOGLE_APPLICATION_CREDENTIALS
-      value: /opt/airflow/secrets/key.json
-  extraVolumes:
-    - name: google-cloud-key
-      secret:
-        secretName: gcs-logger-key
-  extraVolumeMounts:
-    - name: google-cloud-key
-      mountPath: /opt/airflow/secrets
-      readOnly: true
-
+# ------------------------------------------------------------------------------
+# WORKERS
+# ------------------------------------------------------------------------------
 workers:
   replicas: 1
   env:
@@ -133,62 +166,9 @@ workers:
       mountPath: /opt/airflow/secrets
       readOnly: true
 
-webserverSecretKey: changeme-web-secret
-jwtSecret: changeme-jwt-secret
-fernetKey: null
-airflowVersion: 2.9.3
-defaultAirflowTag: 2.9.3
-allowPodLaunching: true
-apiSecretKey: changeme-api-secret
-
-config:
-  api:
-    base_url: http://airflow.ta.vn
-
-  celery:
-    broker_url: ""
-    result_backend: ""
-    worker_concurrency: 16
-
-  core:
-    executor: KubernetesExecutor
-    load_examples: "False"
-    colored_console_log: "False"
-
-  kubernetes_environment_variables:
-    AIRFLOW_CONN_gcs_default: google-cloud-platform://?key_path=/opt/airflow/secrets/key.json&project_id=binance-c2c-deployment&scope=https://www.googleapis.com/auth/cloud-platform
-    GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/secrets/key.json
-
-  logging:
-    remote_logging: "True"
-    remote_log_conn_id: gcs_default
-    remote_base_log_folder: gs://airflow-c2c-logs/logs/
-    colored_console_log: "False"
-    gcs_use_service_account_json: "True"
-    gcs_keyfile_json: /opt/airflow/secrets/key.json
-
-  webserver:
-    base_url: http://airflow.ta.vn
-    enable_proxy_fix: "True"
-    rbac: "True"
-
-executor: KubernetesExecutor
-
-extraSecrets:
-  airflow-gcs-connection:
-    stringData: |
-      AIRFLOW_CONN_gcs_default: "google-cloud-platform://?key_path=/opt/airflow/secrets/key.json&project_id=binance-c2c-deployment&scope=https://www.googleapis.com/auth/cloud-platform"
-
-extraVolumes:
-- name: google-cloud-key
-  secret:
-    secretName: gcs-logger-key
-
-extraVolumeMounts:
-- name: google-cloud-key
-  mountPath: /opt/airflow/secrets
-  readOnly: true
-
+# ------------------------------------------------------------------------------
+# DATABASE / REDIS
+# ------------------------------------------------------------------------------
 postgresql:
   enabled: true
   image:
@@ -197,69 +177,7 @@ postgresql:
 
 redis:
   enabled: false
-
-scheduler:
-  enabled: true
-  replicas: 1
-  env:
-    - name: GOOGLE_APPLICATION_CREDENTIALS
-      value: /opt/airflow/secrets/key.json
-  extraVolumes:
-    - name: google-cloud-key
-      secret:
-        secretName: gcs-logger-key
-  extraVolumeMounts:
-    - name: google-cloud-key
-      mountPath: /opt/airflow/secrets
-      readOnly: true
-
-triggerer:
-  enabled: true
-  replicas: 1
-  persistence:
-    enabled: true
-    size: 2Gi
-  env:
-    - name: GOOGLE_APPLICATION_CREDENTIALS
-      value: /opt/airflow/secrets/key.json
-  extraVolumes:
-    - name: google-cloud-key
-      secret:
-        secretName: gcs-logger-key
-  extraVolumeMounts:
-    - name: google-cloud-key
-      mountPath: /opt/airflow/secrets
-      readOnly: true
-
-webserver:
-  enabled: true
-  replicas: 1
-  env:
-    - name: GOOGLE_APPLICATION_CREDENTIALS
-      value: /opt/airflow/secrets/key.json
-  extraVolumes:
-    - name: google-cloud-key
-      secret:
-        secretName: gcs-logger-key
-  extraVolumeMounts:
-    - name: google-cloud-key
-      mountPath: /opt/airflow/secrets
-      readOnly: true
-
-workers:
-  replicas: 1
-  env:
-    - name: GOOGLE_APPLICATION_CREDENTIALS
-      value: /opt/airflow/secrets/key.json
-  extraVolumes:
-    - name: google-cloud-key
-      secret:
-        secretName: gcs-logger-key
-  extraVolumeMounts:
-    - name: google-cloud-key
-      mountPath: /opt/airflow/secrets
-      readOnly: true
-
+  
 webserverSecretKey: changeme-web-secret
 jwtSecret: changeme-jwt-secret
 fernetKey: null
