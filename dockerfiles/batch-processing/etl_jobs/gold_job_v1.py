@@ -19,7 +19,7 @@ from delta.tables import DeltaTable
 from common.utils import get_spark
 from common.gcs_manager import GCSManager
 
-# ========================= CONFIG & LOGGING ============================
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("gold_job_v1")
 logger.info("Starting Gold Job V1 (Transaction-Level Fact)")
