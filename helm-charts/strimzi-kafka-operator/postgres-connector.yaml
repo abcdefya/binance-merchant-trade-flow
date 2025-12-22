@@ -1,0 +1,29 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: postgres-connector
+  namespace: streaming-processing
+  labels:
+    strimzi.io/cluster: debezium-connect-cluster   # <== your Kafka Connect cluster name
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector #
+  tasksMax: 1
+  config:
+    plugin.name: pgoutput # <== must be pgoutput for Postgres 10+
+
+    database.hostname: airflow-postgresql.batch-processing.svc.cluster.local # switch to batch-processing postgres
+    database.port: "5432" 
+    database.user: postgres
+    database.password: postgres
+    database.dbname: c2c_trade
+
+    table.include.list: c2c.trades
+    publication.name: c2c_publication
+    slot.name: c2c_trades_slot
+
+    topic.prefix: cdc          # <== prefix for Kafka topics
+
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: "false" # <== set to false to disable schema in the message
+    value.converter.schemas.enable: "false" #@ <== set to false to disable schema in the message

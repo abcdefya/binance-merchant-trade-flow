@@ -1,0 +1,58 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: c2c-trades-connector
+  namespace: streaming-processing
+  labels:
+    strimzi.io/cluster: debezium-connect-cluster
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    # PostgreSQL Connection (batch-processing namespace)
+    plugin.name: pgoutput
+    database.hostname: airflow-postgresql.batch-processing.svc.cluster.local
+    database.port: "5432"
+    database.user: postgres
+    database.password: "postgres"
+    database.dbname: c2c_trade
+    
+    # Table Configuration
+    table.include.list: c2c.trades
+    publication.name: c2c_publication
+    slot.name: c2c_trades_slot
+    
+    # Topic Configuration
+    topic.prefix: c2c_cdc
+    
+    # Snapshot Configuration
+    snapshot.mode: initial
+    
+    # Converters (schema-less JSON for easier processing)
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: "false"
+    value.converter.schemas.enable: "false"
+    
+    # Performance Tuning
+    max.queue.size: "8192"
+    max.batch.size: "2048"
+    poll.interval.ms: "1000"
+    
+    # Error Handling
+    errors.tolerance: none
+    errors.log.enable: "true"
+    errors.log.include.messages: "true"
+    
+    # Decimal Handling (for numeric fields)
+    decimal.handling.mode: string
+    
+    # Heartbeat (keep connection alive)
+    heartbeat.interval.ms: "10000"
+    heartbeat.topics.prefix: __debezium-heartbeat
+    
+    # Include transaction metadata
+    provide.transaction.metadata: "true"
+    
+    # Time precision
+    time.precision.mode: connect
