@@ -61,7 +61,7 @@ with DAG(
     dag_id='streaming_ingestion',
     default_args=default_args,
     description='C2C ingestion with DB UPSERT (CDC test)',
-    schedule='@hourly',
+    schedule=timedelta(minutes=5),
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=['c2c', 'ingestion', 'upsert', 'cdc']
