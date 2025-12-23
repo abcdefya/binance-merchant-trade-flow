@@ -66,7 +66,7 @@ metadata:
   name: flink-c2c-telegram-job
   namespace: streaming-processing
 spec:
-  image: asia-southeast1-docker.pkg.dev/binance-c2c-deployment/docker-images/stream-app:git-20e09dc
+  image: asia-southeast1-docker.pkg.dev/binance-c2c-deployment/docker-images/stream-app:git-091fdf8
   imagePullPolicy: Always
   flinkVersion: v1_19
   serviceAccount: flink
@@ -92,7 +92,7 @@ spec:
       - "--bootstrap"
       - "kafka-kafka-bootstrap.streaming-processing.svc:9192"
       - "--topic"
-      - "c2c_cdc.c2c.trades"
+      - "cdc.c2c.trades"
       # - "--telegram-bot-token"  
       # - "$(TELEGRAM_BOT_TOKEN)"   flink_job_telegram.py can not read env variable directly, so we need to pass it as argument
       # - "--telegram-chat-id"   > fail > flink_job_telegram.py read this variale as text
