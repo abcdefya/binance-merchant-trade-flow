@@ -85,6 +85,9 @@ with DAG(
 
             # ✅ ENABLE DB UPSERT
             "ENABLE_DB_UPSERT": "true",
+            
+            # ✅ MỚI: Truyền tham số sleep (ví dụ: 0.5 giây)
+            "SLEEP_INTERVAL": "0.5", 
 
             # DB connection (NO secret hardcode)
             "DB_HOST": "airflow-postgresql.batch-processing.svc.cluster.local",
