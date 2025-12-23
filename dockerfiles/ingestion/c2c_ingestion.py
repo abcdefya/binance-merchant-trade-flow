@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-# c2c_ingestion.py...
+# c2c_ingestion.py
 """
 C2C Ingestion Job (Shared image for batch & streaming)
 
 Features:
 - fetch_by_mode (UNCHANGED)
 - DB UPSERT (optional, controlled by ENV)
-- sleep(10s) on DB change (CDC test)
+- sleep(dynamic) on DB change (CDC test)
 - OPTIONAL: write Parquet to MinIO landing (bronze/_landing)
 
 ENV:
 - FETCH_MODE
 - ENABLE_DB_UPSERT=true|false
 - ENABLE_MINIO_WRITE=true|false
+- SLEEP_INTERVAL (float, default 0)
 
 MinIO ENV (if ENABLE_MINIO_WRITE=true):
 - MINIO_ENDPOINT
@@ -32,7 +33,7 @@ from datetime import datetime
 from binance_sdk_c2c.c2c import ConfigurationRestAPI, C2C_REST_API_PROD_URL
 from binance_sdk_c2c.rest_api.models import GetC2CTradeHistoryResponseDataInner
 from data_ingestion import C2CExtended
-from utils import write_parquet_to_minio   # 🔥 ADD
+from utils import write_parquet_to_minio
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("c2c-ingestion")
@@ -148,9 +149,18 @@ def main():
     enable_db = os.getenv("ENABLE_DB_UPSERT", "false").lower() == "true"
     enable_minio = os.getenv("ENABLE_MINIO_WRITE", "false").lower() == "true"
 
+    # --- SỬA 1: Đọc biến môi trường SLEEP_INTERVAL ---
+    try:
+        sleep_interval = float(os.getenv("SLEEP_INTERVAL", "0"))
+    except ValueError:
+        logger.warning("⚠️ Invalid SLEEP_INTERVAL, defaulting to 0")
+        sleep_interval = 0
+    # ------------------------------------------------
+
     logger.info(f"FETCH_MODE={fetch_mode}")
     logger.info(f"ENABLE_DB_UPSERT={enable_db}")
     logger.info(f"ENABLE_MINIO_WRITE={enable_minio}")
+    logger.info(f"SLEEP_INTERVAL={sleep_interval}")
 
     if not api_key or not api_secret:
         raise RuntimeError("BINANCE_API_KEY / BINANCE_API_SECRET not set")
@@ -247,10 +257,13 @@ def main():
 
                 logger.info(
                     f"📝 DB CHANGED | order={trade.order_number} "
-                    f"status={trade.order_status} → sleep 10s"
+                    f"status={trade.order_status}"
                 )
 
-                time.sleep(10)  # CDC test
+                # --- SỬA 2: Sử dụng sleep_interval động ---
+                if sleep_interval > 0:
+                    time.sleep(sleep_interval) 
+                # ------------------------------------------
 
             else:
                 conn.rollback()
