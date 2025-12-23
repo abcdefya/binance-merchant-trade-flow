@@ -68,8 +68,8 @@ with DAG(
 
     # TASK 1: INGESTION → LANDING
     data_ingestion = KubernetesPodOperator(
-        task_id="c2c_ingestion",
-        name="c2c-ingestion",
+        task_id="ingestion",
+        name="ingestion",
         namespace=NAMESPACE,
 
         image="asia-southeast1-docker.pkg.dev/binance-c2c-deployment/docker-images/ingestion-app:latest",
@@ -101,8 +101,8 @@ with DAG(
 
     # Task 2: Bronze jobs
     bronze_jobs = KubernetesPodOperator(
-        task_id="c2c_bronze_job",
-        name="c2c-bronze-job",
+        task_id="bronze_jobs",
+        name="bronze-jobs",
         namespace=NAMESPACE,
 
         image="asia-southeast1-docker.pkg.dev/binance-c2c-deployment/docker-images/batch-app:latest",
@@ -125,8 +125,8 @@ with DAG(
 
     # Task 3: Silver jobs
     silver_jobs = KubernetesPodOperator(
-        task_id='silver_transformation',
-        name='silver-transformation',
+        task_id='silver_jobs',
+        name='silver-jobs',
         namespace=NAMESPACE,
         image=IMAGE,
         cmds=["python3", "etl_jobs/silver_job.py"],
@@ -140,8 +140,8 @@ with DAG(
 
     # Task 4: Gold jobs
     gold_jobs = KubernetesPodOperator(
-        task_id='gold_transformation',
-        name='gold-transformation-v1',
+        task_id='gold_jobs',
+        name='gold-jobs',
         namespace=NAMESPACE,
         image=IMAGE,
         cmds=["python3", "etl_jobs/gold_job_v1.py"],

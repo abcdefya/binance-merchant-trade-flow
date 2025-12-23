@@ -68,27 +68,22 @@ with DAG(
 ) as dag:
 
     c2c_ingestion_job = KubernetesPodOperator(
-        task_id='c2c_ingestion_latest_month',
+        task_id='streaming_ingestion',
 
-        name='c2c-ingestion-latest-month',
+        name='streaming_ingestion',
         namespace=NAMESPACE,
 
-        # 🔥 ingestion image (shared codebase)
+        # ingestion image (shared codebase)
         image=IMAGE,
 
-        # 🔥 ingestion entrypoint
+        # ingestion entrypoint
         cmds=["python3", "/app/c2c_ingestion.py"],
 
-        # 🔥 ENV controls behavior
+        # ENV controls behavior
         env_vars={
             "FETCH_MODE": "latest",
-
-            # ✅ ENABLE DB UPSERT
             "ENABLE_DB_UPSERT": "true",
-            
-            # ✅ MỚI: Truyền tham số sleep (ví dụ: 0.5 giây)
-            "SLEEP_INTERVAL": "0.5", 
-
+            "SLEEP_INTERVAL": "0.5",
             # DB connection (NO secret hardcode)
             "DB_HOST": "airflow-postgresql.batch-processing.svc.cluster.local",
             "DB_PORT": "5432",
@@ -96,7 +91,6 @@ with DAG(
             "DB_USER": "postgres",
         },
 
-        # 🔥 Secrets injected into env
         secrets=[
             api_key_secret,
             api_secret_secret,
