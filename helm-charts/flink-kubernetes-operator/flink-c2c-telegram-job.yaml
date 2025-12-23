@@ -92,7 +92,7 @@ spec:
       - "--bootstrap"
       - "kafka-kafka-bootstrap.streaming-processing.svc:9192"
       - "--topic"
-      - "cdc.c2c.trades"
+      - "c2c_cdc.c2c.trades"
       # - "--telegram-bot-token"  
       # - "$(TELEGRAM_BOT_TOKEN)"   flink_job_telegram.py can not read env variable directly, so we need to pass it as argument
       # - "--telegram-chat-id"   > fail > flink_job_telegram.py read this variale as text
