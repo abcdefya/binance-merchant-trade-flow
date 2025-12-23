@@ -21,8 +21,6 @@ from spark_utils import (
     create_spark_session,
 )
 
-
-# --------------------- LOGGING & CONFIG ---------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("bronze_job")
 logger.info("Starting Bronze Job (Production Optimized)...")
