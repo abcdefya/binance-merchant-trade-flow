@@ -72,8 +72,8 @@ fi
 echo "▶ Creating airflow-producer-secret"
 
 kubectl create secret generic airflow-producer-secret \
-  --from-literal=API_KEY=your_api_key \
-  --from-literal=API_SECRET=your_api_secret \
+  --from-literal=API_KEY=zqr6LaH0HinO6ufapbP2QyyEGg4BZWGLU9OZOjv4wP85YM43gvi8ODTgfMSpVtQV \
+  --from-literal=API_SECRET=zzbeK2Kj87lJvuPJGPQEz50J93B3YzUQZfIVh0xB7QxZ6uQAyoZLFTzGbUhN2P7J \
   -n "${NAMESPACE}" \
   --dry-run=client -o yaml | kubectl apply -f -
 

@@ -81,7 +81,7 @@ with DAG(
 
         # 🔥 ENV controls behavior
         env_vars={
-            "FETCH_MODE": "latest_month",
+            "FETCH_MODE": "latest",
 
             # ✅ ENABLE DB UPSERT
             "ENABLE_DB_UPSERT": "true",
