@@ -1,0 +1,24 @@
+auth:
+  host: localhost
+  port: 5432
+  username: postgres
+  password: postgres
+  database: c2c_trade   # use the default DB so the script can create c2c_trade
+
+
+  # Test if the default SA in orchestration can create pods in storage
+# kubectl auth can-i create pods -n storage \
+#   --as=system:serviceaccount:orchestration:default
+
+# kubectl auth can-i delete pods -n storage \
+#   --as=system:serviceaccount:orchestration:default
+
+# kubectl auth can-i get pods -n storage \
+#   --as=system:serviceaccount:orchestration:default
+
+
+# Role binding (example)
+# kubectl create rolebinding airflow-storage-access \
+#   --namespace storage \
+#   --clusterrole edit \
+#   --serviceaccount=orchestration:default
