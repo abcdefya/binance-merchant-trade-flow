@@ -76,7 +76,7 @@ with DAG(
         cmds=["python3", "/app/c2c_ingestion.py"],
 
         env_vars={
-            "FETCH_MODE": "latest",
+            "FETCH_MODE": "latest_month",
             "ENABLE_MINIO_WRITE": "true",
             "ENABLE_DB_UPSERT": "false",
             # MinIO landing config
