@@ -67,9 +67,28 @@ deploy_chart() {
     fi
 }
 
+# --- A. Deploy Elasticsearch first ---
 deploy_chart "elasticsearch" "elastic/elasticsearch"
+
+# --- B. WAIT for Elasticsearch to be READY ---
+# Kibana will fail if it tries to install before ES is up.
+# We check the rollout status of the StatefulSet.
+echo "⏳ Waiting for Elasticsearch to be fully ready (this may take a few minutes)..."
+if kubectl rollout status statefulset/elasticsearch-master -n "${NAMESPACE}" --timeout=600s; then
+    echo "✅ Elasticsearch is ready!"
+else
+    echo "❌ Elasticsearch failed to become ready within 10 minutes."
+    exit 1
+fi
+
+# --- C. Deploy remaining components ---
 deploy_chart "logstash"      "elastic/logstash"
 deploy_chart "filebeat"      "elastic/filebeat"
+
+# Cleanup any stuck Kibana install jobs from previous failures
+# (Helps avoid 'field is immutable' or existing job errors)
+kubectl delete job pre-install-kibana-kibana -n "${NAMESPACE}" --ignore-not-found=true >/dev/null 2>&1
+
 deploy_chart "kibana"        "elastic/kibana"
 
 # --------------------------
