@@ -346,3 +346,4 @@ def write_parquet_to_minio(records: list, batch_id: str):
         Key=key,
         Body=buf.getvalue(),
     )
+# Build ingestion image
