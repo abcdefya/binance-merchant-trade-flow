@@ -25,4 +25,4 @@ ENV PYTHONPATH="/opt/flink/usrlib"
 ENV FLINK_PYTHON_EXECUTABLE="/usr/bin/python3"
 
 USER flink
-# I have my graduation thesis defense tomorrow, good luck to me!
+# I have my graduation thesis defense tomorrow, good luck to me!. Shit
