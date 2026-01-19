@@ -64,3 +64,4 @@ USER spark
 
 # Default command: run the ingestion script
 CMD ["python3", "etl_jobs/ingestion.py"]
+# Build docker image
