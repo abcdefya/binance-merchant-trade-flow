@@ -40,7 +40,7 @@ logger = logging.getLogger("c2c-ingestion")
 
 
 # =========================================================
-# FETCH LOGIC (UNCHANGED)
+# FETCH LOGIC (UNCHANGED)fuck
 # =========================================================
 def fetch_by_mode(
     client: C2CExtended,
