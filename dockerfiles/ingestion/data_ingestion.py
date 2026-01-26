@@ -31,7 +31,7 @@ class C2CExtended(C2C):
 
     def __init__(self, config_rest_api: ConfigurationRestAPI = None) -> None:
         super().__init__(config_rest_api)
-        self.max_records = 50  # Maximum records per request as per observed API limit
+        self.max_records = 0  # Maximum records per request as per observed API limit
         self.tz_vietnam = get_vietnam_tz()  # UTC+7 For Vietnam timezone
 
     def _fetch_data(
