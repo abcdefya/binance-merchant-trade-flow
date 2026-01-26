@@ -3,6 +3,7 @@ C2C Ingestion Pipeline DAG (UPSERT ENABLED)
 - Fetch data from Binance C2C API
 - UPSERT into PostgreSQL
 - Used to test CDC → Kafka → Flink → Telegram
+This is a test for dags sync on airflow
 """
 
 from datetime import datetime, timedelta
