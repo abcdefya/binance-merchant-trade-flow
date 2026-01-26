@@ -234,9 +234,8 @@ class C2CExtended(C2C):
             start_dt = datetime.strptime(start_date, '%Y-%m-%d').replace(tzinfo=self.tz_vietnam, hour=0, minute=0, second=0, microsecond=0)
             end_dt = datetime.strptime(end_date, '%Y-%m-%d').replace(tzinfo=self.tz_vietnam, hour=23, minute=59, second=59, microsecond=999000)
             
-            # Validate date range (max 30 days as per API limit)
-            if (end_dt - start_dt).days > 30:
-                raise ValueError("Date range cannot exceed 30 days")
+            # Note: Removed 30-day limit to support multi-month ranges
+            # The API pagination will handle large date ranges automatically
 
             start_time = get_timestamp(start_dt)
             end_time = get_timestamp(end_dt)
