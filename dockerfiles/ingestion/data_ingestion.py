@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from binance_sdk_c2c.rest_api.models import GetC2CTradeHistoryResponseDataInner
 from binance_sdk_c2c.c2c import C2C, ConfigurationRestAPI, C2C_REST_API_PROD_URL
-from utils import (
+from .utils import (
     get_timestamp,
     filter_by_time_range,
     stable_sort_by_time,
